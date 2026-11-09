@@ -74,7 +74,7 @@ schema changes as errors it reports, never as silent empty results.
 | 397 framework/collection indexes | Enumerated | Main discovery source |
 | HIG + 5 nested collections | No index | Walk `topicSections` from their root pages (bounded) |
 | Tutorials | No catalog endpoint | Seed from `/tutorials/...` references found while walking pages, plus a configurable seed list. Reported as partial |
-| Swift book (*The Swift Programming Language*) | Hosted on `docs.swift.org`, not Apple's developer site. Blocked by this sandbox's firewall | **Open question** |
+| Swift book (*The Swift Programming Language*) | Hosted on `docs.swift.org`, not Apple's developer site. Blocked by this sandbox's firewall | Included (decided 2026-11-09). Probe once the firewall allows docs.swift.org |
 | Legacy Documentation Archive (`/library/archive`) | Static HTML only. Retired by Apple | Excluded |
 | Abstracts / platforms / declarations for all 384k pages | Not in the indexes | Lazy (filled in when a page is fetched) + optional enrichment crawl |
 | Localized docs | Not served via JSON | Excluded (English only) |
@@ -99,7 +99,7 @@ schema changes as errors it reports, never as silent empty results.
    only. Accepted input URLs are `/documentation/`, `/design/human-interface-guidelines/`, `/tutorials/` (mapped
    to their data path).
 
-## Library recommendations (need your approval)
+## Library decisions (approved 2026-11-09)
 - **Index: `node:sqlite` (built in, no dependency).** Tested: FTS5 + `bm25()` work (SQLite 3.53.4). At 384k
   entries, an on-disk index keeps memory small and starts fast. MiniSearch would have to load the whole corpus
   into memory each time Claude Desktop starts the server. Risk: `node:sqlite` is marked experimental in Node 22
