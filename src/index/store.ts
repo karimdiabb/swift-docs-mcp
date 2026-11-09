@@ -8,7 +8,10 @@ import { symbolName, wordsOf, type NavEntry } from "./navigator.ts";
 
 export const SCHEMA_VERSION = "1";
 const ORIGIN = "https://developer.apple.com";
-const TOP_LEVEL = ["struct", "class", "protocol", "enum", "actor", "module", "collection", "article", "sampleCode", "macro", "typealias", "httpRequest", "dictionarySymbol"];
+// Ranking tiers. Code types (Swift/ObjC) beat same-named collections or JSON schemas: on the real index "Text"
+// otherwise ranked TVML's `text` collection and Apple News' `Text` object above SwiftUI.Text.
+const CODE_TYPES = ["struct", "class", "protocol", "enum", "actor", "macro"];
+const OTHER_TOP_LEVEL = ["module", "collection", "article", "sampleCode", "typealias", "httpRequest", "dictionarySymbol"];
 const PLATFORMS: Record<string, string> = { ios: "iOS", ipados: "iPadOS", macos: "macOS", watchos: "watchOS", tvos: "tvOS", visionos: "visionOS", maccatalyst: "Mac Catalyst", "mac catalyst": "Mac Catalyst" };
 
 export class IndexUnavailable extends Error {
@@ -315,12 +318,13 @@ export class IndexStore {
         `SELECT d.*, r.title AS root_title, r.slug AS root_slug,
            bm25(docs_fts, 10.0, 6.0, 2.0, 1.0)
            - CASE WHEN d.name = ? OR lower(d.title) = ? THEN 50 ELSE 0 END
-           - CASE WHEN d.nav_type IN (${TOP_LEVEL.map(() => "?").join(",")}) THEN 3 ELSE 0 END
+           - CASE WHEN d.nav_type IN (${CODE_TYPES.map(() => "?").join(",")}) AND d.languages <> 'data' THEN 8
+                  WHEN d.nav_type IN (${OTHER_TOP_LEVEL.map(() => "?").join(",")}) THEN 3 ELSE 0 END
            + CASE WHEN d.deprecated = 1 THEN 5 ELSE 0 END AS score
          ${base}${platformWhere}
          ORDER BY score, length(d.path), d.path LIMIT ? OFFSET ?`,
       )
-      .all(q, q, ...TOP_LEVEL, ...params, ...platformParams, limit, offset) as any[];
+      .all(q, q, ...CODE_TYPES, ...OTHER_TOP_LEVEL, ...params, ...platformParams, limit, offset) as any[];
     return { hits: rows.map(hitFromRow), total, platformUnknown };
   }
 
@@ -345,14 +349,10 @@ export class IndexStore {
     const candidates = rows.filter((r) => {
       const segs = r.path.split("/").filter(Boolean).slice(1).map((s: string) => symbolName(`/${s}`));
       if (fw && segs[0] !== fw && r.root_slug !== fw) return false;
-      // qualifiers must appear in order among the segments before the last one
-      let i = 0;
-      for (const q of qualifiers) {
-        while (i < segs.length - 1 && segs[i] !== q) i++;
-        if (i >= segs.length - 1) return false;
-        i++;
-      }
-      return true;
+      // Qualifiers are the direct parent chain: "SwiftUI.View.onAppear" -> segments end with [swiftui, view].
+      const before = segs.slice(0, -1);
+      if (qualifiers.length > before.length) return false;
+      return qualifiers.every((q, k) => before[before.length - qualifiers.length + k] === q);
     });
     const exact = candidates.filter((r) => r.name === last);
     return (exact.length ? exact : candidates).map(docFromRow);

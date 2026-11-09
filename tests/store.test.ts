@@ -54,6 +54,17 @@ describe("search", () => {
     expect(store.search("list").hits[0].path).toBe("/documentation/swiftui/list");
   });
 
+  // Real case from the full index: "Text" ranked TVML's `text` collection and Apple News' `Text` JSON object above SwiftUI.Text.
+  it("prefers a Swift/ObjC type over a same-named collection or data schema", () => {
+    for (const [path, slug, title] of [["/documentation/tvml", "tvml", "TVML"], ["/documentation/applenewsformat", "applenewsformat", "Apple News Format"]] as const) {
+      store.upsertRoot({ path, slug, title, method: "navigator", status: "ok" });
+    }
+    store.upsertEntries("/documentation/tvml", [nav({ path: "/documentation/tvml/text", title: "text", navType: "collection", pageKind: "collection" })], 1000);
+    store.upsertEntries("/documentation/applenewsformat", [nav({ path: "/documentation/applenewsformat/text", title: "Text", navType: "dictionarySymbol", languages: ["data"] })], 1000);
+    store.upsertEntries("/documentation/swiftui", [nav({ path: "/documentation/swiftui/text", title: "Text" })], 1000);
+    expect(store.search("Text").hits[0].path).toBe("/documentation/swiftui/text");
+  });
+
   it("ranks the exact title match above longer matches", () => {
     expect(store.search("view").hits[0].path).toBe("/documentation/swiftui/view");
   });
@@ -124,6 +135,16 @@ describe("findSymbol", () => {
     expect(store.findSymbol("frame(width:height:alignment:)").map((c) => c.path)).toEqual(["/documentation/swiftui/view/frame(width:height:alignment:)"]);
     expect(store.findSymbol("View", { framework: "uikit" })).toEqual([]);
     expect(store.findSymbol("UIKit.NavigationStack")).toEqual([]);
+  });
+
+  // Real case: "SwiftUI.NavigationStack" also matched /swiftui/toolbarrole/navigationstack (an enum case).
+  it("treats qualifiers as the direct parent chain, with an optional leading framework", () => {
+    store.upsertEntries("/documentation/swiftui", [nav({ path: "/documentation/swiftui/toolbarrole/navigationstack", title: "case navigationStack", navType: "case" })], 1000);
+    expect(store.findSymbol("NavigationStack").map((c) => c.path)).toEqual(["/documentation/swiftui/navigationstack", "/documentation/swiftui/toolbarrole/navigationstack"]);
+    expect(store.findSymbol("SwiftUI.NavigationStack").map((c) => c.path)).toEqual(["/documentation/swiftui/navigationstack"]);
+    expect(store.findSymbol("ToolbarRole.navigationStack").map((c) => c.path)).toEqual(["/documentation/swiftui/toolbarrole/navigationstack"]);
+    expect(store.findSymbol("SwiftUI.ToolbarRole.navigationStack").map((c) => c.path)).toEqual(["/documentation/swiftui/toolbarrole/navigationstack"]);
+    expect(store.findSymbol("SwiftUI.onAppear")).toEqual([]); // onAppear's parent is View, not the framework
   });
 
   it("ignores articles and removed pages", () => {
