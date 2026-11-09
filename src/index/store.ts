@@ -209,6 +209,10 @@ export class IndexStore {
     return Number(this.db.prepare("UPDATE docs SET removed_at = ? WHERE root = ? AND seen_at < ? AND removed_at IS NULL").run(now, root, syncStart).changes);
   }
 
+  countNotSeen(root: string, syncStart: number): number {
+    return (this.db.prepare("SELECT count(*) AS n FROM docs WHERE root = ? AND seen_at < ? AND removed_at IS NULL").get(root, syncStart) as any).n;
+  }
+
   markRootRemoved(root: string, now: number): number {
     return Number(this.db.prepare("UPDATE docs SET removed_at = ? WHERE root = ? AND removed_at IS NULL").run(now, root).changes);
   }
