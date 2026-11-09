@@ -2,13 +2,13 @@
 // Shapes were taken from real Apple pages (see docs/findings.md and tests/fixtures).
 // Rules: exact declarations (tokens joined, never reformatted); unknown types keep their text and are
 // recorded in `unsupported`; nothing is invented when a field is missing.
+import { linkBase } from "../security/url.ts";
 import { AppleHttpError } from "./client.ts";
 import type { Availability, Declaration, DocPage, LinkGroup, LinkItem, PageKind, Parameter } from "./types.ts";
 
-const ORIGIN = "https://developer.apple.com";
 
 type Json = any; // external input: every access below is defensive
-type Ctx = { refs: Record<string, Json>; unsupported: string[] };
+type Ctx = { refs: Record<string, Json>; unsupported: string[]; base: string };
 
 export type ParseOptions = { url: string; language?: "swift" | "occ" };
 
@@ -20,7 +20,7 @@ export function parseRenderNode(input: unknown, opts: ParseOptions): DocPage {
   const want = opts.language;
   const json: Json = want && want !== baseLang && availableLanguages.includes(want) ? applyVariantOverrides(base, want) : base;
 
-  const ctx: Ctx = { refs: isObj(json.references) ? json.references : {}, unsupported: [] };
+  const ctx: Ctx = { refs: isObj(json.references) ? json.references : {}, unsupported: [], base: linkBase(opts.url) };
   const m: Json = isObj(json.metadata) ? json.metadata : {};
   const url = opts.url;
 
@@ -171,7 +171,7 @@ function linkItem(id: string, ctx: Ctx): LinkItem {
   const r = ctx.refs[id];
   if (!isObj(r)) return { title: id };
   const item: LinkItem = { title: String(r.title ?? id) };
-  if (r.url) item.url = absUrl(String(r.url));
+  if (r.url) item.url = absUrl(String(r.url), ctx.base);
   const abstract = inline(r.abstract, ctx);
   if (abstract) item.abstract = abstract;
   if (r.kind) item.kind = String(r.kind);
@@ -311,7 +311,7 @@ function tutorialTask(t: Json, ctx: Ctx): string {
 
 function mediaLine(id: string, ctx: Ctx): string {
   const r = ctx.refs[id];
-  const u = mediaUrl(r);
+  const u = mediaUrl(r, ctx.base);
   if (!u) return "";
   return r?.type === "video" ? `[Video: ${r.alt ?? id}](${u})` : `![${r?.alt ?? ""}](${u})`;
 }
@@ -414,7 +414,7 @@ function inlineNode(n: Json, ctx: Ctx): string {
       if (!isObj(r)) return code(id);
       const title = n.overridingTitle ?? r.title ?? r.url ?? id;
       const text = r.kind === "symbol" && !n.overridingTitle ? code(String(title)) : String(title);
-      const url = r.type === "download" ? undefined : r.url ? absUrl(String(r.url)) : undefined;
+      const url = r.type === "download" ? undefined : r.url ? absUrl(String(r.url), ctx.base) : undefined;
       return n.isActive === false || !url ? text : `[${text}](${url})`;
     }
     case "link":
@@ -463,15 +463,15 @@ function oneLine(s: string): string {
   return s.replace(/\n{2,}/g, " ").trim();
 }
 
-function mediaUrl(r: Json): string | undefined {
+function mediaUrl(r: Json, base: string): string | undefined {
   const variants = arr(r?.variants);
   const v = variants.find((x: Json) => arr(x?.traits).includes("light")) ?? variants[0];
-  return v?.url ? absUrl(String(v.url)) : undefined;
+  return v?.url ? absUrl(String(v.url), base) : undefined;
 }
 
-function absUrl(u: string): string {
+function absUrl(u: string, base: string): string {
   if (/^https?:\/\//i.test(u)) return u;
-  return u.startsWith("/") ? ORIGIN + u : u;
+  return u.startsWith("/") ? base + u : u;
 }
 
 function record(ctx: Ctx, what: string) {

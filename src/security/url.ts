@@ -31,17 +31,53 @@ export type DocUrl = {
 
 const MAX_LENGTH = 2048;
 
-// Exact host allowlist. docs.swift.org (Swift book) gets added only after its endpoints are probed.
-const HOSTS: Record<string, { pagePrefixes: string[]; fetchPrefix: string; toData: (path: string) => string }> = {
+type Site = {
+  /** Accepted page path prefixes (a prefix ending in "/" needs at least one more segment). */
+  pagePrefixes: string[];
+  /** Alternative page prefixes, rewritten to the canonical one. */
+  aliases: [from: string, to: string][];
+  /** The only path prefixes that may be fetched. */
+  fetchPrefixes: string[];
+  toData: (path: string) => string;
+  robotsDisallowed: string[];
+};
+
+// Exact host allowlist. Why each host is needed:
+// - developer.apple.com: Apple's documentation (DocC JSON under /tutorials/data/).
+// - docs.swift.org: the Swift book and other swift.org documentation (DocC JSON under /latest/data/, navigator
+//   at /latest/index/index.json; probed 2026-11-09). /swift-book/ redirects people to /latest/. No robots.txt (404).
+const HOSTS: Record<string, Site> = {
   "developer.apple.com": {
     pagePrefixes: ["/documentation/", "/design/human-interface-guidelines", "/tutorials/"],
-    fetchPrefix: "/tutorials/data/",
+    aliases: [],
+    fetchPrefixes: ["/tutorials/data/"],
     toData: (path) => `/tutorials/data${path}.json`,
+    // robots.txt of developer.apple.com (checked 2026-11-09)
+    robotsDisallowed: ["/cgi-bin/", "/click/", "/documentation/dataformats/", "/reference/", "/search/", "/survey/", "/temp/", "/unsubscribe/", "/forums/"],
+  },
+  "docs.swift.org": {
+    pagePrefixes: ["/latest/documentation/"],
+    aliases: [["/swift-book/documentation/", "/latest/documentation/"]],
+    fetchPrefixes: ["/latest/data/", "/latest/index/"],
+    toData: (path) => `${path.replace(/^\/latest\//, "/latest/data/")}.json`,
+    robotsDisallowed: [],
   },
 };
 
-// robots.txt of developer.apple.com (checked 2026-11-09). Applies to page paths and fetch paths.
-const ROBOTS_DISALLOWED = ["/cgi-bin/", "/click/", "/documentation/dataformats/", "/reference/", "/search/", "/survey/", "/temp/", "/unsubscribe/", "/forums/"];
+/** Stored index paths -> URL. swift.org paths are stored with their /latest/ prefix, so they never collide. */
+export function urlForPath(path: string): string {
+  const host = path.startsWith("/latest/") ? "docs.swift.org" : "developer.apple.com";
+  return `https://${host}${encodePath(path)}`;
+}
+
+/** Base for resolving a page's relative links ("/documentation/..."). */
+export function linkBase(pageUrl: string): string {
+  try {
+    const u = new URL(pageUrl);
+    if (u.hostname === "docs.swift.org") return "https://docs.swift.org/latest";
+  } catch {}
+  return "https://developer.apple.com";
+}
 
 export function parseDocUrl(input: string): DocUrl {
   checkRaw(input);
@@ -54,12 +90,13 @@ export function parseDocUrl(input: string): DocUrl {
   const segments = rawPath.split("/").slice(1);
   if (segments.at(-1) === "") segments.pop(); // trailing slash
   const decoded = segments.map((s) => decodeSegment(s, input));
-  const path = "/" + decoded.join("/").toLowerCase();
+  let path = "/" + decoded.join("/").toLowerCase();
+  for (const [from, to] of host.aliases) if (path.startsWith(from)) path = to + path.slice(from.length);
 
-  if (path.startsWith("/tutorials/data/") || path === "/tutorials/data") throw new UrlRejected("data path, pass the page URL", input);
+  if (host.fetchPrefixes.some((p) => path.startsWith(p) || path + "/" === p)) throw new UrlRejected("data path, pass the page URL", input);
   const prefixOk = host.pagePrefixes.some((p) => (p.endsWith("/") ? path.startsWith(p) && path.length > p.length : path === p || path.startsWith(p + "/")));
   if (!prefixOk) throw new UrlRejected("not a documentation page", input);
-  if (isRobotsDisallowed(path)) throw new UrlRejected("robots-disallowed", input);
+  if (isRobotsDisallowed(host, path)) throw new UrlRejected("robots-disallowed", input);
 
   const lang = url.searchParams.get("language")?.toLowerCase();
   const language: Language | undefined = lang === "objc" || lang === "occ" ? "occ" : lang === "swift" ? "swift" : undefined;
@@ -86,8 +123,8 @@ export function assertFetchable(target: string | URL, base?: string | URL): URL 
   checkOrigin(url, target);
   const host = HOSTS[url.hostname];
   // url.pathname is already resolved here, so "/tutorials/data/../../x" has become "/x" and fails the prefix.
-  if (!url.pathname.startsWith(host.fetchPrefix)) throw new UrlRejected("path outside fetch prefix", target);
-  if (isRobotsDisallowed(url.pathname.toLowerCase())) throw new UrlRejected("robots-disallowed", target);
+  if (!host.fetchPrefixes.some((p) => url.pathname.startsWith(p))) throw new UrlRejected("path outside fetch prefix", target);
+  if (isRobotsDisallowed(host, url.pathname.toLowerCase())) throw new UrlRejected("robots-disallowed", target);
   return url;
 }
 
@@ -143,6 +180,6 @@ function encodePath(path: string): string {
   return new URL(pre, "https://x").pathname;
 }
 
-function isRobotsDisallowed(path: string) {
-  return ROBOTS_DISALLOWED.some((p) => path.startsWith(p) || path + "/" === p);
+function isRobotsDisallowed(site: Site, path: string) {
+  return site.robotsDisallowed.some((p) => path.startsWith(p) || path + "/" === p);
 }

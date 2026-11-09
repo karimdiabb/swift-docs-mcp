@@ -1,12 +1,12 @@
 import type { z } from "zod";
 import { fence } from "../apple/docc-parser.ts";
-import { symbolName } from "../index/navigator.ts";
+import { docSegments, symbolName } from "../index/navigator.ts";
+import { urlForPath } from "../security/url.ts";
 import type { IndexDoc } from "../index/store.ts";
 import { lazyEnrich, DATA_NOTE } from "./documentation.ts";
 import { errorResult, NO_INDEX, text, type ToolContext } from "./context.ts";
 import type { apiInput } from "./schemas.ts";
 
-const ORIGIN = "https://developer.apple.com";
 const MAX_CANDIDATES = 25;
 
 export const API_DESCRIPTION =
@@ -33,20 +33,21 @@ export async function apiTool(ctx: ToolContext, a: z.infer<typeof apiInput>) {
     if (candidates.length > 1) {
       const names = candidates.map((c) => qualifiedName(c.path));
       const dup = (n: string) => names.filter((x) => x === n).length > 1;
-      const list = candidates.slice(0, MAX_CANDIDATES).map((c) => `- \`${c.name}\` — ${c.navType} in ${c.root.split("/").pop()} — ${ORIGIN + c.path}${c.declaration ? `\n  \`${c.declaration.replace(/\s+/g, " ")}\`` : `\n  ${c.title}`}\n  ${dup(qualifiedName(c.path)) ? "same name as another overload; use get_apple_doc with the URL" : `symbol: \`${qualifiedName(c.path)}\``}`);
+      const list = candidates.slice(0, MAX_CANDIDATES).map((c) => `- \`${c.name}\` — ${c.navType} in ${c.root.split("/").pop()} — ${urlForPath(c.path)}${c.declaration ? `\n  \`${c.declaration.replace(/\s+/g, " ")}\`` : `\n  ${c.title}`}\n  ${dup(qualifiedName(c.path)) ? "same name as another overload; use get_apple_doc with the URL" : `symbol: \`${qualifiedName(c.path)}\``}`);
       return text(
         `Ambiguous: ${candidates.length} symbols match "${a.symbol}". Not choosing one.${platformNote}\n\n${list.join("\n")}${candidates.length > MAX_CANDIDATES ? `\n- …and ${candidates.length - MAX_CANDIDATES} more` : ""}\n\nTo narrow it, call get_apple_api_details again with one of the \`symbol:\` values above (or add a framework / parent type), or call get_apple_doc with one of the URLs.`,
       );
     }
 
     const c = candidates[0];
-    const r = await ctx.docs.getDoc(ORIGIN + c.path, { includeRelated: true, maxRelated: 10 });
+    const r = await ctx.docs.getDoc(urlForPath(c.path), { includeRelated: true, maxRelated: 10 });
     lazyEnrich(ctx, r.page);
     const p = r.page;
     const parentPath = c.path.split("/").slice(0, -1).join("/");
-    const parent = parentPath.split("/").length > 2 ? store.get(parentPath) : undefined;
+    const hasParent = docSegments(c.path).length > 1;
+    const parent = hasParent ? store.get(parentPath) : undefined;
     const out = [`# ${p.title}`, `Symbol kind: ${p.roleHeading ?? p.symbolKind ?? c.navType}${p.symbolKind ? ` (${p.symbolKind})` : ""} · ${p.framework ?? c.root}`, `URL: ${p.url}`];
-    if (parentPath.split("/").length > 2) out.push(`Parent: ${parent ? `${parent.title} — ` : ""}${ORIGIN + parentPath}`);
+    if (hasParent) out.push(`Parent: ${parent ? `${parent.title} — ` : ""}${urlForPath(parentPath)}`);
     if (p.deprecated) out.push(`> **Deprecated.**${p.deprecationSummary ? " " + p.deprecationSummary : ""}`);
     if (p.abstract) out.push(p.abstract);
     out.push(p.declarations.length ? `## Declaration\n\n${p.declarations.map((d) => fence(d.languages[0] ?? p.language, d.code)).join("\n\n")}` : "## Declaration\n\nApple's page has no declaration for this symbol.");
@@ -66,5 +67,5 @@ export async function apiTool(ctx: ToolContext, a: z.infer<typeof apiInput>) {
 
 /** "/documentation/swiftui/view/frame(width:height:alignment:)" -> "swiftui.view.frame(width:height:alignment:)" (accepted by findSymbol). */
 function qualifiedName(path: string): string {
-  return path.split("/").filter(Boolean).slice(1).map((seg) => symbolName(`/${seg}`)).join(".");
+  return docSegments(path).map((seg) => symbolName(`/${seg}`)).join(".");
 }

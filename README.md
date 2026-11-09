@@ -1,8 +1,9 @@
 # swift-docs-mcp
 
 A local, read-only [Model Context Protocol](https://modelcontextprotocol.io) server that gives Claude Desktop
-search and retrieval over **Apple's developer documentation**: every framework in Apple's catalog, plus
-articles, sample code, tutorials and the Human Interface Guidelines.
+search and retrieval over **Apple's developer documentation** (every framework in Apple's catalog, plus
+articles, sample code, tutorials and the Human Interface Guidelines) and **swift.org's documentation**
+(*The Swift Programming Language*, API Design Guidelines, SwiftPM, DocC, the Swift 6 migration guide, ...).
 
 It is a documentation retrieval system, not an agent. It finds Apple's pages and returns their content
 faithfully (exact declarations, availability, deprecation, code listings), with the source URL.
@@ -53,6 +54,9 @@ through their navigator indexes. This includes API reference for all symbol kind
 REST endpoints, JSON objects, property-list keys), articles, sample-code pages and collections. The Human
 Interface Guidelines and a few nested collections without an index are covered by walking their page links.
 Tutorial collections are discovered through links (plus a seed, `/tutorials/swiftui`).
+From **docs.swift.org**, every collection in its navigator index is included (the Swift book, API Guidelines,
+Package Manager, DocC, Embedded Swift, platform guides, compiler diagnostics, the Swift 6 migration guide, ...),
+except those Apple's catalog already has (Standard Library, Testing): Apple's copies are used for those.
 
 **Known gaps** (also reported by `get_apple_docs_status`):
 
@@ -62,19 +66,22 @@ Tutorial collections are discovered through links (plus a seed, `/tutorials/swif
   `index enrich`). Until then, search shows title, kind and framework. The `platform` filter drops pages known
   not to support the platform, lists confirmed pages first, and marks the rest "availability not yet known".
 - Tutorials have no catalog endpoint; only linked or seeded tutorial collections are found.
-- **The Swift book (docs.swift.org) is not included yet**: its endpoints still have to be verified.
 - Not included: the retired Documentation Archive (`/library/archive`), localized docs, WWDC videos, forums.
 - Sample-code download links aren't generated (the download host is unverified); the sample's page is linked.
 
 ## 4. Apple sources and discovery method
 
-All requests go to `https://developer.apple.com` under `/tutorials/data/`:
+Requests go to exactly two hosts:
 
-| Endpoint | Use | Status |
-|---|---|---|
-| `/tutorials/data/documentation/technologies.json` | Root catalog | observed, undocumented |
-| `/tutorials/data/index/<root>` | Navigator index: every page of a root | observed, undocumented |
-| `/tutorials/data/<page path>.json` | DocC JSON of one page | observed, undocumented |
+| Host | Endpoint | Use | Status |
+|---|---|---|---|
+| developer.apple.com | `/tutorials/data/documentation/technologies.json` | Root catalog | observed, undocumented |
+| developer.apple.com | `/tutorials/data/index/<root>` | Navigator index: every page of a root | observed, undocumented |
+| developer.apple.com | `/tutorials/data/<page path>.json` | DocC JSON of one page | observed, undocumented |
+| docs.swift.org | `/latest/index/index.json` | Navigator for all swift.org collections | observed, undocumented |
+| docs.swift.org | `/latest/data/<page path>.json` | DocC JSON of one page | observed, undocumented |
+
+docs.swift.org has no robots.txt; `/swift-book/...` URLs redirect to `/latest/...` and are accepted as aliases.
 
 Apple's search (`/search/`) is **disallowed by robots.txt** and is not used; search runs on the local index.
 Requests honour robots.txt, are spaced at least 1 second apart, and identify themselves with a clear
@@ -138,6 +145,7 @@ Example calls (what Claude sends):
 {"name": "search_apple_docs", "arguments": {"query": "navigation stack", "framework": "SwiftUI"}}
 {"name": "get_apple_doc", "arguments": {"url": "https://developer.apple.com/documentation/swiftui/navigationstack"}}
 {"name": "get_apple_doc", "arguments": {"url": "https://developer.apple.com/documentation/foundation/nsstring?language=objc"}}
+{"name": "get_apple_doc", "arguments": {"url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency"}}
 {"name": "get_apple_api_details", "arguments": {"symbol": "View.onAppear"}}
 {"name": "get_apple_api_details", "arguments": {"symbol": "frame(width:height:alignment:)"}}
 {"name": "get_apple_docs_status", "arguments": {}}
@@ -161,6 +169,7 @@ the last sync was interrupted.
 ```bash
 node dist/index.js index refresh                     # conditional requests: unchanged roots cost one 304 each
 node dist/index.js index refresh --only swiftui,uikit
+node dist/index.js index refresh --only swift.org    # just docs.swift.org
 node dist/index.js index enrich                      # fill abstracts/platforms/declarations for top-level
                                                      # pages (struct, class, protocol, enum, article, ...)
 node dist/index.js index enrich --framework swiftui --max 500
@@ -182,10 +191,12 @@ run it in chunks with `--max`, and it skips pages already done.
 - **Read-only and narrow.** No shell commands, no reading of arbitrary files or projects, no writes except
   its own data directory, no network port (stdio only), no credentials, and the only environment variables
   it reads are `SWIFT_DOCS_MCP_HOME` and `XDG_CACHE_HOME`.
-- **No arbitrary URLs.** Inputs must be `https://developer.apple.com` documentation, HIG or tutorial pages.
+- **No arbitrary URLs.** Inputs must be `https://developer.apple.com` documentation, HIG or tutorial pages, or
+  `https://docs.swift.org/latest/documentation/...` pages.
   The raw input is checked before URL parsing (dot segments, encoded slashes and backslashes, control
   characters). The host must match exactly, so lookalikes, IP literals, subdomains, credentials and ports
-  are rejected. Requests can only go to `/tutorials/data/` on that host, and robots-disallowed paths are refused.
+  are rejected. Requests can only go to `/tutorials/data/` on Apple's host and `/latest/data/` or `/latest/index/`
+  on docs.swift.org, and robots-disallowed paths are refused.
 - **Redirects** are followed manually (at most 3) and every hop is re-validated.
 - **Limits:** 20-second timeout, 25 MB response cap enforced while streaming, at least 1 second between
   requests, identical in-flight requests shared.

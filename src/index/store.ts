@@ -4,10 +4,10 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { Availability, PageKind } from "../apple/types.ts";
-import { symbolName, wordsOf, type NavEntry } from "./navigator.ts";
+import { urlForPath } from "../security/url.ts";
+import { docSegments, symbolName, wordsOf, type NavEntry } from "./navigator.ts";
 
 export const SCHEMA_VERSION = "1";
-const ORIGIN = "https://developer.apple.com";
 // Ranking tiers. Code types (Swift/ObjC) beat same-named collections or JSON schemas: on the real index "Text"
 // otherwise ranked TVML's `text` collection and Apple News' `Text` object above SwiftUI.Text.
 const CODE_TYPES = ["struct", "class", "protocol", "enum", "actor", "macro"];
@@ -292,8 +292,8 @@ export class IndexStore {
     const params: any[] = [match];
     if (o.framework) {
       const f = o.framework.toLowerCase().trim();
-      where.push("(r.slug = ? OR lower(r.title) = ? OR d.path = ? OR d.path LIKE ?)");
-      params.push(f, f, `/documentation/${f}`, `/documentation/${f}/%`);
+      where.push("(r.slug = ? OR lower(r.title) = ? OR d.path = ? OR d.path LIKE ? OR d.path = ? OR d.path LIKE ?)");
+      params.push(f, f, `/documentation/${f}`, `/documentation/${f}/%`, `/latest/documentation/${f}`, `/latest/documentation/${f}/%`);
     }
     if (o.kind) {
       where.push("d.page_kind = ?");
@@ -351,7 +351,7 @@ export class IndexStore {
       .all(last, base ?? null, base ? `${likeEscape(base)}(%` : "") as any[];
     const fw = o.framework?.toLowerCase().trim();
     const candidates = rows.filter((r) => {
-      const segs = r.path.split("/").filter(Boolean).slice(1).map((s: string) => symbolName(`/${s}`));
+      const segs = docSegments(r.path).map((s: string) => symbolName(`/${s}`));
       if (fw && segs[0] !== fw && r.root_slug !== fw) return false;
       // Qualifiers are the direct parent chain: "SwiftUI.View.onAppear" -> segments end with [swiftui, view].
       const before = segs.slice(0, -1);
@@ -483,7 +483,7 @@ function hitFromRow(r: any): SearchHit {
   const d = docFromRow(r);
   const h: SearchHit = {
     path: d.path,
-    url: ORIGIN + d.path,
+    url: urlForPath(d.path),
     title: d.title,
     name: d.name,
     navType: d.navType,

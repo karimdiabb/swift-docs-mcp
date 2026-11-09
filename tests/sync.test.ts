@@ -11,6 +11,7 @@ import { IndexStore } from "../src/index/store.ts";
 // ---- a small fake developer.apple.com ----
 const WIDGETKIT = JSON.parse(readFileSync(new URL("./fixtures/navigator-widgetkit.json", import.meta.url), "utf8"));
 const WIDGETKIT_COUNT = 329; // computed independently in navigator.test.ts
+const SWIFTORG = JSON.parse(readFileSync(new URL("./fixtures/navigator-swiftorg.json", import.meta.url), "utf8")); // book 44, API Guidelines 33, Standard Library stub 4
 
 type Site = Map<string, { body: unknown; etag: string } | number>;
 const page = (path: string, title: string, refs: string[] = [], o: { role?: string; kind?: string } = {}) => ({
@@ -234,5 +235,72 @@ describe("Indexer.enrich", () => {
     expect(r.enriched + r.failed).toBe(before.length);
     expect(r.notFound).toBe(before.filter((p) => p.endsWith("/timelineentry")).length);
     expect(store.pendingEnrichment({ kinds: ["protocol"], limit: 100 })).toEqual([]);
+  });
+});
+
+describe("Indexer.sync with docs.swift.org", () => {
+  const TSPL = "/latest/documentation/the-swift-programming-language";
+  beforeEach(() => {
+    site.set("/latest/index/index.json", { body: SWIFTORG, etag: '"s1"' });
+    // Apple has its own Standard Library root, so swift.org's copy must be skipped.
+    site.set("/tutorials/data/documentation/technologies.json", { body: technologies([["/documentation/widgetkit", "WidgetKit"], [HIG, "Human Interface Guidelines"], ["/documentation/swift", "Swift"]]), etag: '"1"' });
+    site.set("/tutorials/data/index/swift", { body: { interfaceLanguages: { swift: [{ type: "module", title: "Swift", path: "/documentation/swift", children: [{ type: "struct", title: "String", path: "/documentation/swift/string" }] }] } }, etag: '"sw"' });
+  });
+
+  it("indexes swift.org collections as their own roots and skips ones Apple already has", async () => {
+    const r = await indexer().sync({ mode: "build", swiftOrg: true });
+    expect(r.errors).toEqual([]);
+    expect(store.getRoot(TSPL)).toMatchObject({ title: "The Swift Programming Language", role: "swift.org", status: "ok", docCount: 44 });
+    expect(store.getRoot("/latest/documentation/apiguidelines")).toMatchObject({ docCount: 33 });
+    expect(store.getRoot("/latest/documentation/swift")).toBeUndefined();
+    expect(store.stats().docs).toBe(WIDGETKIT_COUNT + 6 + 2 + 44 + 33);
+  });
+
+  it("makes book pages searchable with docs.swift.org URLs and filterable by collection", async () => {
+    await indexer().sync({ mode: "build", swiftOrg: true });
+    const hit = store.search("The Basics").hits[0];
+    expect(hit.url).toBe(`https://docs.swift.org${TSPL}/thebasics`);
+    expect(hit.framework).toBe("The Swift Programming Language");
+    expect(store.search("basics", { framework: "the-swift-programming-language" }).hits[0].url).toBe(`https://docs.swift.org${TSPL}/thebasics`);
+  });
+
+  it("refreshes the shared swift.org index with one conditional request", async () => {
+    await indexer().sync({ mode: "build", swiftOrg: true });
+    t += 60_000;
+    calls = [];
+    const r = await indexer().sync({ mode: "refresh", swiftOrg: true });
+    const c = calls.filter((x) => x.path === "/latest/index/index.json");
+    expect(c).toHaveLength(1);
+    expect(c[0].headers["if-none-match"]).toBe('"s1"');
+    expect(r.removed).toBe(0);
+    expect(store.getRoot(TSPL)?.docCount).toBe(44);
+  });
+
+  it("removes a collection that swift.org stops listing", async () => {
+    await indexer().sync({ mode: "build", swiftOrg: true });
+    t += 60_000;
+    const fewer = JSON.parse(JSON.stringify(SWIFTORG));
+    fewer.interfaceLanguages.swift[0].children = fewer.interfaceLanguages.swift[0].children.filter((c: any) => c.path !== "/documentation/apiguidelines");
+    site.set("/latest/index/index.json", { body: fewer, etag: '"s2"' });
+    const r = await indexer().sync({ mode: "refresh", swiftOrg: true });
+    expect(store.getRoot("/latest/documentation/apiguidelines")?.status).toBe("removed");
+    expect(r.removed).toBe(33);
+  });
+
+  it("keeps swift.org pages and reports the error when the index cannot be fetched", async () => {
+    await indexer().sync({ mode: "build", swiftOrg: true });
+    t += 60_000;
+    site.set("/latest/index/index.json", 503);
+    const r = await indexer().sync({ mode: "refresh", swiftOrg: true });
+    expect(r.errors.join("\n")).toMatch(/swift\.org.*503/);
+    expect(store.getRoot(TSPL)?.docCount).toBe(44);
+    expect(store.stats().docs).toBe(WIDGETKIT_COUNT + 6 + 2 + 44 + 33);
+  });
+
+  it("only: ['swift.org'] syncs just swift.org", async () => {
+    await indexer().sync({ mode: "build", swiftOrg: true });
+    calls = [];
+    await indexer().sync({ mode: "refresh", swiftOrg: true, only: ["swift.org"] });
+    expect(calls.map((c) => c.path).filter((p) => p.includes("/index/"))).toEqual(["/latest/index/index.json"]);
   });
 });

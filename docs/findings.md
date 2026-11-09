@@ -80,7 +80,7 @@ schema changes as errors it reports, never as silent empty results.
 | 397 framework/collection indexes | Enumerated | Main discovery source |
 | HIG + 5 nested collections | No index | Walk `topicSections` from their root pages (bounded) |
 | Tutorials | No catalog endpoint | Seed from `/tutorials/...` references found while walking pages, plus a configurable seed list. Reported as partial |
-| Swift book (*The Swift Programming Language*) | Hosted on `docs.swift.org`, not Apple's developer site. Blocked by this sandbox's firewall | Included (decided 2026-11-09). Probe once the firewall allows docs.swift.org |
+| Swift book (*The Swift Programming Language*) | Hosted on `docs.swift.org`, not Apple's developer site. Blocked by this sandbox's firewall | Included. Probed 2026-11-09: see the docs.swift.org section |
 | Legacy Documentation Archive (`/library/archive`) | Static HTML only. Retired by Apple | Excluded |
 | Abstracts / platforms / declarations for all 384k pages | Not in the indexes | Lazy (filled in when a page is fetched) + optional enrichment crawl |
 | Localized docs | Not served via JSON | Excluded (English only) |
@@ -128,3 +128,11 @@ schema changes as errors it reports, never as silent empty results.
   Qualified names (`SwiftUI.NavigationStack`) now mean the direct parent chain.
 - Right after a build, under 0.1% of pages have platform data, so the platform filter keeps unknown pages
   (marked) after confirmed ones instead of returning nothing.
+
+## docs.swift.org (probed 2026-11-09)
+- No robots.txt (404). `/swift-book/...` (beta, "6.4 beta") redirects people to `/latest/...` (stable, "6.4").
+- Navigator: `/latest/index/index.json` (7.6 MB), with one root node "Swift Documentation" whose module children
+  are the collections. Pages: `/latest/data/documentation/<path>.json`. Relative links are relative to `/latest`.
+- 22 archives, including a full copy of the Standard Library (21k pages), Testing, RegexBuilder and others that Apple
+  also hosts. Collections whose slug matches an Apple root (swift, testing) are skipped. The rest are indexed under
+  their real `/latest/...` path, so they can't collide with Apple's paths.

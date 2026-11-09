@@ -9,11 +9,14 @@ import { AppleClient, AppleHttpError } from "../apple/client.ts";
 import { parseRenderNode } from "../apple/docc-parser.ts";
 import { DocService } from "../apple/docs.ts";
 import type { DocPage } from "../apple/types.ts";
-import { parseNavigator, type NavEntry } from "./navigator.ts";
+import { urlForPath } from "../security/url.ts";
+import { parseNavigator, parseSwiftOrgCollections, type NavEntry } from "./navigator.ts";
 import { IndexStore, type Enrichment, type RootRow } from "./store.ts";
 
 const ORIGIN = "https://developer.apple.com";
 const TECHNOLOGIES = `${ORIGIN}/tutorials/data/documentation/technologies.json`;
+const SWIFT_ORG_INDEX = "https://docs.swift.org/latest/index/index.json";
+const SWIFT_ORG = "swift.org";
 const MAX_REMOVAL_RATIO = 0.5;
 const MIN_PAGES_FOR_RATIO_CHECK = 20;
 
@@ -25,6 +28,8 @@ export type SyncOptions = {
   maxWalkPages?: number;
   /** Tutorial roots to walk even if no page links to them, e.g. ["/tutorials/swiftui"]. */
   tutorialSeeds?: string[];
+  /** Also index docs.swift.org collections (the Swift book, ...) that Apple's catalog doesn't already have. */
+  swiftOrg?: boolean;
 };
 
 export type RootReport = { path: string; status: RootRow["status"]; method: RootRow["method"]; docs: number; changed: boolean; removed: number; error?: string };
@@ -70,7 +75,7 @@ export class Indexer {
     if (!only && listed.length) {
       const listedPaths = new Set(listed.map((r) => r.path));
       for (const r of this.store.listRoots()) {
-        if (r.role !== "tutorials" && r.status !== "removed" && !listedPaths.has(r.path)) {
+        if (r.role !== "tutorials" && r.role !== SWIFT_ORG && r.status !== "removed" && !listedPaths.has(r.path)) {
           const n = this.store.markRootRemoved(r.path, this.now());
           this.store.upsertRoot({ ...r, status: "removed", docCount: 0, checkedAt: this.now() });
           reports.push({ path: r.path, status: "removed", method: r.method, docs: 0, changed: true, removed: n });
@@ -85,13 +90,18 @@ export class Indexer {
     for (;;) {
       const next = this.store
         .listRoots()
-        .filter((r) => r.status !== "removed" && !done.has(r.path) && (!only || only.includes(r.slug)))
+        .filter((r) => r.role !== SWIFT_ORG && r.status !== "removed" && !done.has(r.path) && (!only || only.includes(r.slug)))
         .sort((a, b) => Number(a.role === "tutorials") - Number(b.role === "tutorials"))[0];
       if (!next) break;
       done.add(next.path);
       const rep = await this.syncRoot(next, o);
       reports.push(rep);
       if (rep.error) errors.push(`${rep.path}: ${rep.error}`);
+    }
+
+    if (o.swiftOrg && (!only || only.includes(SWIFT_ORG))) {
+      const rep = await this.syncSwiftOrg(o.mode, errors);
+      reports.push(...rep);
     }
 
     const finishedAt = this.now();
@@ -120,7 +130,7 @@ export class Indexer {
     this.log(`enrich: ${paths.length} pages`);
     for (const [i, path] of paths.entries()) {
       try {
-        const r = await this.docs.getDoc(ORIGIN + path, { includeRelated: false });
+        const r = await this.docs.getDoc(urlForPath(path), { includeRelated: false });
         this.store.enrich(path, enrichmentOf(r.page), this.now());
         rep.enriched++;
         consecutiveNetwork = 0;
@@ -220,7 +230,12 @@ export class Indexer {
       }
     }
 
-    this.store.upsertEntries(root.path, entries!, start, this.now());
+    return this.apply(root, entries!, start, prevCount, method, validators, truncated);
+  }
+
+  /** Store a root's fresh page list; remove what disappeared, unless the walk was cut short or too much would go. */
+  private apply(root: RootRow, entries: (NavEntry & Enrichment)[], start: number, prevCount: number, method: RootRow["method"], validators: { etag?: string; lastModified?: string }, truncated?: string): RootReport {
+    this.store.upsertEntries(root.path, entries, start, this.now());
     let removed = 0;
     let status: RootRow["status"] = "ok";
     let error: string | undefined;
@@ -240,6 +255,65 @@ export class Indexer {
     return { path: root.path, status, method, docs, changed: true, removed, ...(error ? { error } : {}) };
   }
 
+  /**
+   * docs.swift.org: one navigator index for all collections. Collections whose slug matches an Apple root
+   * (Standard Library, Testing) are skipped, because Apple's copy is the canonical one and already indexed.
+   */
+  private async syncSwiftOrg(mode: SyncOptions["mode"], errors: string[]): Promise<RootReport[]> {
+    const start = this.now();
+    const known = this.store.listRoots().filter((r) => r.role === SWIFT_ORG && r.status !== "removed");
+    const validators = mode === "refresh" && known.length ? clean({ etag: this.store.getMeta("swiftOrgEtag"), lastModified: this.store.getMeta("swiftOrgLastModified") }) : {};
+    let data: unknown;
+    let fresh: { etag?: string; lastModified?: string } = {};
+    try {
+      const r = await this.client.getJson(SWIFT_ORG_INDEX, validators);
+      if (r.status === 304) {
+        for (const root of known) {
+          this.store.touchRoot(root.path, start);
+          this.store.upsertRoot({ ...root, status: "ok", error: undefined, checkedAt: start });
+        }
+        return known.map((r) => ({ path: r.path, status: "ok" as const, method: "navigator" as const, docs: this.store.rootDocCount(r.path), changed: false, removed: 0 }));
+      }
+      data = r.data;
+      fresh = clean({ etag: r.etag, lastModified: r.lastModified });
+    } catch (e) {
+      const msg = `${SWIFT_ORG}: ${(e as Error).message}`;
+      errors.push(msg);
+      this.log(`  ${msg}`);
+      for (const root of known) this.store.upsertRoot({ ...root, status: "error", error: (e as Error).message, checkedAt: start });
+      return [];
+    }
+
+    let collections;
+    try {
+      collections = parseSwiftOrgCollections(data);
+    } catch (e) {
+      errors.push(`${SWIFT_ORG}: ${(e as Error).message}`);
+      return [];
+    }
+    const appleSlugs = new Set(this.store.listRoots().filter((r) => r.role !== SWIFT_ORG && r.status !== "removed" && r.path.startsWith("/documentation/")).map((r) => r.slug));
+    const skipped = collections.filter((c) => appleSlugs.has(c.slug)).map((c) => c.title);
+    const reports: RootReport[] = [];
+    const listed = new Set<string>();
+    for (const c of collections) {
+      if (appleSlugs.has(c.slug)) continue;
+      listed.add(c.path);
+      const root: RootRow = this.store.getRoot(c.path) ?? { path: c.path, slug: c.slug, title: c.title, role: SWIFT_ORG, method: "navigator", status: "pending" };
+      reports.push(this.apply({ ...root, title: c.title, role: SWIFT_ORG }, c.entries, start, this.store.rootDocCount(c.path), "navigator", {}));
+    }
+    for (const r of known) {
+      if (listed.has(r.path)) continue;
+      const n = this.store.markRootRemoved(r.path, this.now());
+      this.store.upsertRoot({ ...r, status: "removed", docCount: 0, checkedAt: start });
+      reports.push({ path: r.path, status: "removed", method: r.method, docs: 0, changed: true, removed: n });
+    }
+    if (fresh.etag) this.store.setMeta("swiftOrgEtag", fresh.etag);
+    if (fresh.lastModified) this.store.setMeta("swiftOrgLastModified", fresh.lastModified);
+    this.store.setMeta("swiftOrgSkipped", JSON.stringify(skipped));
+    if (skipped.length) this.log(`  ${SWIFT_ORG}: skipped ${skipped.join(", ")} (Apple's copy is indexed)`);
+    return reports;
+  }
+
   /** Breadth-first walk of pages under `rootPath`, following topic links. Pages come from the doc cache when fresh. */
   private async walk(rootPath: string, max: number, discoverTutorials: boolean): Promise<{ entries: (NavEntry & Enrichment)[]; truncated?: string }> {
     const queue = [rootPath];
@@ -251,7 +325,7 @@ export class Indexer {
       let json: any;
       let url: string;
       try {
-        const r = await this.docs.loadJson(ORIGIN + path);
+        const r = await this.docs.loadJson(urlForPath(path));
         json = r.json;
         url = r.url;
       } catch (e) {

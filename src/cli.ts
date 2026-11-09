@@ -35,7 +35,7 @@ Usage:
   swift-docs-mcp doc <url>            print one documentation page as Markdown
 
 Options:
-  --only a,b          (build/refresh) only these roots, by slug, e.g. swiftui,uikit
+  --only a,b          (build/refresh) only these roots, by slug, e.g. swiftui,uikit (swift.org = docs.swift.org)
   --max-walk N        (build/refresh) max pages per walked root (default 3000)
   --interval-ms N     minimum milliseconds between requests to Apple (default 1000, min ${MIN_INTERVAL_MS})
   --kinds a,b         (enrich) navigator kinds (default ${DEFAULT_ENRICH_KINDS.join(",")})
@@ -141,7 +141,7 @@ export async function runCli(argv: string[]): Promise<number> {
     const client = new AppleClient({ minIntervalMs: c.intervalMs });
     const indexer = new Indexer({ client, docs: new DocService({ client, cache }), store });
     if (c.cmd === "sync") {
-      const r = await indexer.sync({ mode: c.mode, maxWalkPages: c.maxWalkPages, ...(c.only ? { only: c.only } : { tutorialSeeds: DEFAULT_TUTORIAL_SEEDS }) });
+      const r = await indexer.sync({ mode: c.mode, maxWalkPages: c.maxWalkPages, swiftOrg: true, ...(c.only ? { only: c.only } : { tutorialSeeds: DEFAULT_TUTORIAL_SEEDS }) });
       process.stderr.write(`\n${r.docs} pages indexed, ${r.removed} removed, ${r.errors.length} errors${r.partial ? " (partial: see `index status`)" : ""}\n`);
       for (const e of r.errors.slice(0, 20)) process.stderr.write(`  - ${e}\n`);
       return r.partial ? 1 : 0;

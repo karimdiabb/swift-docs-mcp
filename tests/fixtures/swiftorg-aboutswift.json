@@ -1,0 +1,393 @@
+{
+  "abstract" : [
+    {
+      "text" : "Understand the high-level goals of the language.",
+      "type" : "text"
+    }
+  ],
+  "hierarchy" : {
+    "paths" : [
+      [
+        "doc:\/\/org.swift.tspl\/documentation\/The-Swift-Programming-Language"
+      ]
+    ]
+  },
+  "identifier" : {
+    "interfaceLanguage" : "swift",
+    "url" : "doc:\/\/org.swift.tspl\/documentation\/The-Swift-Programming-Language\/AboutSwift"
+  },
+  "kind" : "article",
+  "metadata" : {
+    "role" : "article",
+    "title" : "About Swift"
+  },
+  "primaryContentSections" : [
+    {
+      "content" : [
+        {
+          "inlineContent" : [
+            {
+              "text" : "Swift is a fantastic way to write software",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "for phones, tablets, desktops, servers,",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "or anything else that runs code.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "It’s a safe and fast programming language",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "that combines the best in modern language thinking",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "with wisdom from a diverse open source community.",
+              "type" : "text"
+            }
+          ],
+          "type" : "paragraph"
+        },
+        {
+          "inlineContent" : [
+            {
+              "text" : "Swift is friendly to new programmers,",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "without sacrificing the power and flexibility",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "that experienced programmers need.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "It’s an industrial-quality programming language",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "that’s as expressive and enjoyable as a scripting language.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "The compiler is optimized for performance",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "and the language is optimized for development,",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "without compromising on either.",
+              "type" : "text"
+            }
+          ],
+          "type" : "paragraph"
+        },
+        {
+          "inlineContent" : [
+            {
+              "text" : "Swift defines away large classes of common programming errors",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "by adopting modern programming patterns:",
+              "type" : "text"
+            }
+          ],
+          "type" : "paragraph"
+        },
+        {
+          "items" : [
+            {
+              "content" : [
+                {
+                  "inlineContent" : [
+                    {
+                      "text" : "Variables are always initialized before use.",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ]
+            },
+            {
+              "content" : [
+                {
+                  "inlineContent" : [
+                    {
+                      "text" : "Array indices are checked for out-of-bounds errors.",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ]
+            },
+            {
+              "content" : [
+                {
+                  "inlineContent" : [
+                    {
+                      "text" : "Integers are checked for overflow.",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ]
+            },
+            {
+              "content" : [
+                {
+                  "inlineContent" : [
+                    {
+                      "text" : "Optionals ensure that ",
+                      "type" : "text"
+                    },
+                    {
+                      "code" : "nil",
+                      "type" : "codeVoice"
+                    },
+                    {
+                      "text" : " values are handled explicitly.",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ]
+            },
+            {
+              "content" : [
+                {
+                  "inlineContent" : [
+                    {
+                      "text" : "Memory is managed automatically.",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ]
+            },
+            {
+              "content" : [
+                {
+                  "inlineContent" : [
+                    {
+                      "text" : "Error handling allows controlled recovery from unexpected failures.",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ]
+            }
+          ],
+          "type" : "unorderedList"
+        },
+        {
+          "inlineContent" : [
+            {
+              "text" : "Swift code is compiled and optimized to get the most out of modern hardware.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "The syntax and standard library have been designed",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "based on the guiding principle that",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "the obvious way to write your code should also perform the best.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "Its combination of safety and speed make Swift an excellent choice for",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "everything from “Hello, world!” to an entire operating system.",
+              "type" : "text"
+            }
+          ],
+          "type" : "paragraph"
+        },
+        {
+          "inlineContent" : [
+            {
+              "text" : "Swift combines a modern, lightweight syntax",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "that’s familiar for developers coming from other popular languages",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "with powerful features like type inference and pattern matching,",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "allowing complex ideas to be expressed in a clear and concise manner.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "As a result, code is easier to read, write, and maintain.",
+              "type" : "text"
+            }
+          ],
+          "type" : "paragraph"
+        },
+        {
+          "inlineContent" : [
+            {
+              "text" : "Swift continues to evolve with thoughtful new features and powerful capabilities.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "The goals for Swift are ambitious.",
+              "type" : "text"
+            },
+            {
+              "text" : " ",
+              "type" : "text"
+            },
+            {
+              "text" : "We can’t wait to see what you create with it.",
+              "type" : "text"
+            }
+          ],
+          "type" : "paragraph"
+        }
+      ],
+      "kind" : "content"
+    }
+  ],
+  "schemaVersion" : {
+    "major" : 0,
+    "minor" : 3,
+    "patch" : 0
+  },
+  "sections" : [
+
+  ]
+, 
+"references": {
+"doc://org.swift.tspl/documentation/The-Swift-Programming-Language": {
+  "abstract" : [
+    {
+      "text" : "Write safe, fast, expressive code with a modern, general-purpose language.",
+      "type" : "text"
+    }
+  ],
+  "identifier" : "doc:\/\/org.swift.tspl\/documentation\/The-Swift-Programming-Language",
+  "kind" : "article",
+  "role" : "collection",
+  "title" : "The Swift Programming Language (6.4)",
+  "type" : "topic",
+  "url" : "\/documentation\/the-swift-programming-language"
+}
+}
+}

@@ -8,7 +8,7 @@ export const KNOWN_GAPS = [
   "Live Apple search is not used: developer.apple.com/search is disallowed by robots.txt. Search runs on the local index only.",
   "Abstracts, platforms and declarations are only known for pages fetched at least once (lazily, or via `index enrich`). The platform filter lists confirmed pages first and marks pages without that data as 'availability not yet known'.",
   "Tutorials have no catalog endpoint; only tutorial collections linked from indexed pages (or configured seeds) are included.",
-  "The Swift book (docs.swift.org) is not included yet: its endpoints have not been verified.",
+  "From docs.swift.org, collections that duplicate an Apple root (Standard Library, Testing) are skipped in favour of Apple's copy.",
   "Apple's retired Documentation Archive (/library/archive) is not included (static HTML only).",
   "Localized documentation is not included; Apple's JSON is English only.",
   "Sample-code download links are not built (the download host is unverified); the sample's page is linked instead.",
@@ -38,6 +38,7 @@ export function buildStatus(o: { store: IndexStore | undefined; storeError?: str
   const s: Status = {
     sources: [
       "developer.apple.com DocC JSON: technologies.json (root catalog), /tutorials/data/index/<root> (navigator indexes), /tutorials/data/<page>.json (pages). These endpoints are not publicly documented by Apple (observed behaviour).",
+      "docs.swift.org DocC JSON: /latest/index/index.json (navigator for all swift.org collections, including The Swift Programming Language), /latest/data/<page>.json (pages). Observed, undocumented.",
     ],
     searchMode: "local index (SQLite FTS5) with live page retrieval from Apple and a local cache",
     index: { available: !!o.store, problemRoots: [] },
