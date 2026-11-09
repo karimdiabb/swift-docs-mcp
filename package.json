@@ -1,8 +1,8 @@
 {
   "name": "swift-docs-mcp",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Local, read-only MCP server for Apple developer documentation",
+  "description": "Unofficial local, read-only MCP server for Apple developer documentation and swift.org docs",
   "type": "module",
   "engines": {
     "node": ">=22.18"
@@ -39,5 +39,9 @@
   "files": [
     "dist",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/karimdiabb/swift-docs-mcp.git"
+  }
 }

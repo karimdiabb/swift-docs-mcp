@@ -5,8 +5,54 @@ search and retrieval over **Apple's developer documentation** (every framework i
 articles, sample code, tutorials and the Human Interface Guidelines) and **swift.org's documentation**
 (*The Swift Programming Language*, API Design Guidelines, SwiftPM, DocC, the Swift 6 migration guide, ...).
 
-It is a documentation retrieval system, not an agent. It finds Apple's pages and returns their content
-faithfully (exact declarations, availability, deprecation, code listings), with the source URL.
+It is a documentation retrieval system, not an agent. It finds pages and returns their content faithfully
+(exact declarations, availability, deprecation, code listings), always with the source URL.
+
+> [!IMPORTANT]
+> **Unofficial project.** Not affiliated with, endorsed by, or supported by Apple Inc. or the Swift project.
+> Apple, Swift, Xcode, SwiftUI and other names are trademarks of Apple Inc. All documentation content belongs to
+> its owners (Apple Inc., the Swift project). This tool fetches it on your machine for your own use. It does not
+> host or redistribute it.
+
+> [!WARNING]
+> - **Undocumented endpoints.** It reads the JSON that Apple's and swift.org's documentation websites use
+>   internally. These are not public APIs and can change or disappear without notice; if that happens, the
+>   server reports errors (it never makes up content) until the code is updated.
+> - **Be polite to Apple's servers.** Requests are limited to 1 per second and honour robots.txt. Please don't
+>   lower `--interval-ms` much, run builds in parallel, or use this for bulk mirroring.
+> - **First build is slow and large:** about 20 minutes and about 300 MB on disk (`~/Library/Caches/swift-docs-mcp`).
+> - **Early software (v0.1).** It has a large test suite and runs against the live sites, but it has only been
+>   used by its author. Expect rough edges.
+
+## Quick start (macOS)
+
+Requires **Node.js 22.18+** (`node --version`) and Claude Desktop.
+
+```bash
+git clone https://github.com/karimdiabb/swift-docs-mcp.git
+cd swift-docs-mcp
+npm install && npm run build      # build only; Claude Desktop starts the server itself
+node dist/index.js index build    # one-time, about 20 min
+which node                        # note this path for the config below
+```
+
+Then add it to Claude Desktop (**Settings → Developer → Edit Config**), using your own paths:
+
+```json
+{
+  "mcpServers": {
+    "swift-docs": {
+      "command": "/ABSOLUTE/PATH/FROM/which/node",
+      "args": ["/ABSOLUTE/PATH/TO/swift-docs-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+Quit Claude Desktop with ⌘Q, reopen it, and ask something like *"Use swift-docs: what's the declaration of
+NavigationStack?"*. If macOS asks whether **node** may access a folder (for example because you cloned into
+`~/Desktop` or `~/Documents`), click **Allow**: node needs to read the server's own files. Details are in
+sections 7 and 12.
 
 ## 1. Purpose and scope
 
@@ -218,6 +264,7 @@ run it in chunks with `--max`, and it skips pages already done.
 | `index build` says another operation is running | Another build/refresh is running. If none is, the lock is from a crashed run and the next run takes it over. |
 | Status shows roots with `error`/`partial` | Run `index refresh` later; errors are per root and don't affect the rest. |
 | `ExperimentalWarning: SQLite is an experimental feature` | Harmless (stderr). `node:sqlite` is marked experimental in Node 22. |
+| "Server disconnected" after a macOS "node would like to access…" popup you denied | System Settings → Privacy & Security → Files & Folders → enable the folder for **node** (or Claude). If it isn't listed: `tccutil reset SystemPolicyDesktopFolder` (or `…DocumentsFolder`), restart Claude and click Allow. Or clone outside protected folders, e.g. `~/Developer`. |
 | Results look stale | `node dist/index.js index refresh`; for one page, `cache clear` or wait for the 7-day revalidation. |
 
 ## 13. Limitations and endpoint stability
@@ -228,6 +275,18 @@ run it in chunks with `--max`, and it skips pages already done.
 - Ranking is local full-text ranking (bm25 with boosts for exact symbol names and top-level types). It is not
   Apple's ranking.
 - Coverage limits are listed in section 3.
+
+## Test fixtures
+
+`tests/fixtures/` contains a small number of real documentation pages (DocC JSON) downloaded from
+developer.apple.com and docs.swift.org on 2026-11-09. They exist only so the parser can be tested against the
+real format offline. Their content belongs to Apple Inc. and the Swift project, and they are not covered by
+anything in this repository. If you are a rights holder and want them removed, please open an issue.
+
+## License
+
+No license is granted: all rights reserved. You can read the code, but not reuse or redistribute it without
+permission.
 
 ## Development
 
