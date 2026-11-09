@@ -5,7 +5,7 @@ import { AppleHttpError } from "../apple/client.ts";
 import type { DocService } from "../apple/docs.ts";
 import type { DocCache } from "../cache/cache.ts";
 import { IndexStore, IndexUnavailable } from "../index/store.ts";
-import { UrlRejected } from "../security/url.ts";
+import { siteOf, UrlRejected } from "../security/url.ts";
 
 export type ToolContext = {
   docs: DocService;
@@ -69,13 +69,14 @@ export const NO_INDEX = (ctx: ToolContext) =>
 export function errorResult(ctx: ToolContext, tool: string, e: unknown, url?: string): CallToolResult {
   ctx.recordError(tool, e);
   if (e instanceof UrlRejected)
-    return text(`URL rejected (${e.reason}). Only Apple documentation pages are supported: https://developer.apple.com/documentation/..., /design/human-interface-guidelines/... or /tutorials/... .`, true);
+    return text(`URL rejected (${e.reason}). Supported pages: https://developer.apple.com/documentation/..., /design/human-interface-guidelines/..., /tutorials/..., and https://docs.swift.org/latest/documentation/... .`, true);
   if (e instanceof AppleHttpError) {
-    if (e.kind === "not_found") return text(`Apple returned 404 (not found) for ${url ?? e.url}. The page may not exist or may have moved; try search_apple_docs.`, true);
+    const site = siteOf(e.url).name;
+    if (e.kind === "not_found") return text(`${site} returned 404 (not found) for ${url ?? e.url}. The page may not exist or may have moved; try search_apple_docs.`, true);
     if (e.kind === "network" || e.kind === "timeout" || e.kind === "http")
-      return text(`Apple could not be reached (${e.kind}${e.status ? ` ${e.status}` : ""}) and no cached copy is available for ${url ?? e.url}. Nothing was retrieved.`, true);
+      return text(`${site} could not be reached (${e.kind}${e.status ? ` ${e.status}` : ""}) and no cached copy is available for ${url ?? e.url}. Nothing was retrieved.`, true);
     if (e.kind === "blocked") return text(`Request blocked by the server's security rules: ${e.message}`, true);
-    return text(`Apple returned an unexpected response (${e.kind}): ${e.message}. Nothing was retrieved.`, true);
+    return text(`${site} returned an unexpected response (${e.kind}): ${e.message}. Nothing was retrieved.`, true);
   }
   return text(`Internal error in ${tool}: ${(e as Error)?.message ?? String(e)}`, true);
 }
