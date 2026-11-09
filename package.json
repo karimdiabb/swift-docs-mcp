@@ -8,8 +8,16 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:integration": "RUN_INTEGRATION=1 vitest run --config vitest.integration.config.ts",
     "research:discovery": "node research/discovery.ts",
     "research:pages": "node research/pages.ts",
     "research:edges": "node research/edges.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
   }
 }
