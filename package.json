@@ -1,0 +1,15 @@
+{
+  "name": "swift-docs-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local, read-only MCP server for Apple developer documentation",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "research:discovery": "node research/discovery.ts",
+    "research:pages": "node research/pages.ts",
+    "research:edges": "node research/edges.ts"
+  }
+}
