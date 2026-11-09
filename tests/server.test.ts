@@ -232,7 +232,20 @@ describe("get_apple_api_details", () => {
     expect(r.text).toMatch(/2 symbols match/);
     expect(r.text).toContain("frame(width:height:alignment:)");
     expect(r.text).toMatch(/narrow/i);
+    expect(r.text).toContain("symbol: `swiftui.view.frame(width:height:alignment:)`"); // exact name that selects each candidate
     expect(calls).toHaveLength(0); // never fetched one of them on a guess
+  });
+
+  it("points same-signature overloads (differing only by hash) to their URLs", async () => {
+    await connect();
+    store!.upsertRoot({ path: "/documentation/foundation", slug: "foundation", title: "Foundation", method: "navigator", status: "ok" });
+    store!.upsertEntries("/documentation/foundation", [
+      nav("/documentation/foundation/urlsession/datatask(with:)-10dy7", "func dataTask(with: URL) -> URLSessionDataTask", "method"),
+      nav("/documentation/foundation/urlsession/datatask(with:)-7jpys", "func dataTask(with: URLRequest) -> URLSessionDataTask", "method"),
+    ], 1000);
+    const r = await call("get_apple_api_details", { symbol: "URLSession.dataTask(with:)" });
+    expect(r.text).toMatch(/2 symbols match/);
+    expect(r.text).toMatch(/same name as another overload; use get_apple_doc with the URL/);
   });
 
   it("resolves with a full signature or parent qualifier", async () => {

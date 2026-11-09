@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import { fence } from "../apple/docc-parser.ts";
+import { symbolName } from "../index/navigator.ts";
 import type { IndexDoc } from "../index/store.ts";
 import { lazyEnrich, DATA_NOTE } from "./documentation.ts";
 import { errorResult, NO_INDEX, text, type ToolContext } from "./context.ts";
@@ -30,9 +31,11 @@ export async function apiTool(ctx: ToolContext, a: z.infer<typeof apiInput>) {
       return text(`No API symbol named "${a.symbol}"${a.framework ? ` in ${a.framework}` : ""} was found in the index.${platformNote}${sug.length ? `\n\nClosest search results:\n${sug.map((h) => `- ${h.title} — ${h.framework}: ${h.url}`).join("\n")}` : ""}\n\nTry search_apple_docs for broader matches.`);
     }
     if (candidates.length > 1) {
-      const list = candidates.slice(0, MAX_CANDIDATES).map((c) => `- \`${c.name}\` — ${c.navType} in ${c.root.split("/").pop()} — ${ORIGIN + c.path}${c.declaration ? `\n  \`${c.declaration.replace(/\s+/g, " ")}\`` : `\n  ${c.title}`}`);
+      const names = candidates.map((c) => qualifiedName(c.path));
+      const dup = (n: string) => names.filter((x) => x === n).length > 1;
+      const list = candidates.slice(0, MAX_CANDIDATES).map((c) => `- \`${c.name}\` — ${c.navType} in ${c.root.split("/").pop()} — ${ORIGIN + c.path}${c.declaration ? `\n  \`${c.declaration.replace(/\s+/g, " ")}\`` : `\n  ${c.title}`}\n  ${dup(qualifiedName(c.path)) ? "same name as another overload; use get_apple_doc with the URL" : `symbol: \`${qualifiedName(c.path)}\``}`);
       return text(
-        `Ambiguous: ${candidates.length} symbols match "${a.symbol}". Not choosing one.${platformNote}\n\n${list.join("\n")}${candidates.length > MAX_CANDIDATES ? `\n- …and ${candidates.length - MAX_CANDIDATES} more` : ""}\n\nNarrow it with the framework, a parent type (Type.member), or the full signature such as ${candidates[0].name.includes("(") ? candidates[0].name : `${candidates[0].name}(…)`}, or call get_apple_doc with one of the URLs.`,
+        `Ambiguous: ${candidates.length} symbols match "${a.symbol}". Not choosing one.${platformNote}\n\n${list.join("\n")}${candidates.length > MAX_CANDIDATES ? `\n- …and ${candidates.length - MAX_CANDIDATES} more` : ""}\n\nTo narrow it, call get_apple_api_details again with one of the \`symbol:\` values above (or add a framework / parent type), or call get_apple_doc with one of the URLs.`,
       );
     }
 
@@ -59,4 +62,9 @@ export async function apiTool(ctx: ToolContext, a: z.infer<typeof apiInput>) {
   } catch (e) {
     return errorResult(ctx, "get_apple_api_details", e);
   }
+}
+
+/** "/documentation/swiftui/view/frame(width:height:alignment:)" -> "swiftui.view.frame(width:height:alignment:)" (accepted by findSymbol). */
+function qualifiedName(path: string): string {
+  return path.split("/").filter(Boolean).slice(1).map((seg) => symbolName(`/${seg}`)).join(".");
 }
