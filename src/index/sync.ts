@@ -46,6 +46,7 @@ export class Indexer {
   private readonly store: IndexStore;
   private readonly now: () => number;
   private readonly log: (msg: string) => void;
+  private progress = "";
 
   constructor(d: IndexerDeps) {
     this.client = d.client;
@@ -94,12 +95,16 @@ export class Indexer {
         .sort((a, b) => Number(a.role === "tutorials") - Number(b.role === "tutorials"))[0];
       if (!next) break;
       done.add(next.path);
+      const remaining = this.store.listRoots().filter((r) => r.role !== SWIFT_ORG && r.status !== "removed" && !done.has(r.path) && (!only || only.includes(r.slug))).length;
+      this.progress = `[${done.size}/${done.size + remaining}] `;
       const rep = await this.syncRoot(next, o);
       reports.push(rep);
       if (rep.error) errors.push(`${rep.path}: ${rep.error}`);
     }
 
+    this.progress = "";
     if (o.swiftOrg && (!only || only.includes(SWIFT_ORG))) {
+      this.log(`  ${SWIFT_ORG}: fetching the docs.swift.org index`);
       const rep = await this.syncSwiftOrg(o.mode, errors);
       reports.push(...rep);
     }
@@ -192,7 +197,7 @@ export class Indexer {
     const prevCount = this.store.rootDocCount(root.path);
     const fail = (error: string): RootReport => {
       this.store.upsertRoot({ ...root, status: "error", error, checkedAt: start, docCount: prevCount });
-      this.log(`  ${root.path}: ${error}`);
+      this.log(`  ${this.progress}${root.path}: ${error}`);
       return { path: root.path, status: "error", method: root.method, docs: prevCount, changed: false, removed: 0, error };
     };
 
@@ -251,7 +256,7 @@ export class Indexer {
 
     const docs = this.store.rootDocCount(root.path);
     this.store.upsertRoot({ ...root, method, status, error, checkedAt: start, changedAt: start, docCount: docs, ...validators, ...(method === "walk" ? { etag: undefined, lastModified: undefined } : {}) });
-    this.log(`  ${root.path}: ${docs} pages via ${method}${removed ? `, ${removed} removed` : ""}${error ? ` (${error})` : ""}`);
+    this.log(`  ${this.progress}${root.path}: ${docs} pages via ${method}${removed ? `, ${removed} removed` : ""}${error ? ` (${error})` : ""}`);
     return { path: root.path, status, method, docs, changed: true, removed, ...(error ? { error } : {}) };
   }
 
@@ -319,6 +324,7 @@ export class Indexer {
     const queue = [rootPath];
     const seen = new Set(queue);
     const entries: (NavEntry & Enrichment)[] = [];
+    this.log(`  ${this.progress}walking ${rootPath} (no navigator index; about 1 page per second)`);
     while (queue.length) {
       if (entries.length >= max) return { entries, truncated: `walk limit of ${max} pages reached` };
       const path = queue.shift()!;
@@ -334,6 +340,7 @@ export class Indexer {
       }
       const page = parseRenderNode(json, { url });
       entries.push({ ...entryOf(path, page), ...enrichmentOf(page) });
+      if (entries.length % 25 === 0) this.log(`    ${rootPath}: ${entries.length} pages walked, ${queue.length} queued`);
       for (const ref of Object.values<any>(json.references ?? {})) {
         if (ref?.type !== "topic" && ref?.type !== "link") continue;
         const p = normalizePath(String(ref.url ?? ""));

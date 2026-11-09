@@ -101,6 +101,13 @@ describe("Indexer.sync build", () => {
     expect(store.getMeta("lastBuild")).toBe(String(t));
   });
 
+  it("logs progress: a counter per root and a line when a walk starts", async () => {
+    const lines: string[] = [];
+    await indexer({ log: (m) => lines.push(m) }).sync({ mode: "build" });
+    expect(lines.some((l) => /^\s*\[1\/\d+\] /.test(l))).toBe(true);
+    expect(lines.some((l) => /walking \/design\/human-interface-guidelines/.test(l))).toBe(true);
+  });
+
   it("stores walked pages with their metadata (abstract, platforms, kind)", async () => {
     await indexer().sync({ mode: "build" });
     expect(store.get(`${HIG}/foundations`)).toMatchObject({ title: "Foundations", pageKind: "guideline", abstract: "About Foundations", platforms: [{ platform: "iOS", introduced: "17.0" }] });
