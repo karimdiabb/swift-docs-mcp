@@ -6,7 +6,7 @@ import type { IndexStats, IndexStore, RootRow } from "./index/store.ts";
 export const KNOWN_GAPS = [
   "Apple publishes no complete, verified inventory of its documentation; coverage is what Apple's own catalog (technologies.json) and navigator indexes list, plus link walks for roots without an index.",
   "Live Apple search is not used: developer.apple.com/search is disallowed by robots.txt. Search runs on the local index only.",
-  "Abstracts, platforms and declarations are only known for pages fetched at least once (lazily, or via `index enrich`). The platform filter lists confirmed pages first and marks pages without that data as "availability not yet known".",
+  "Abstracts, platforms and declarations are only known for pages fetched at least once (lazily, or via `index enrich`). The platform filter lists confirmed pages first and marks pages without that data as 'availability not yet known'.",
   "Tutorials have no catalog endpoint; only tutorial collections linked from indexed pages (or configured seeds) are included.",
   "The Swift book (docs.swift.org) is not included yet: its endpoints have not been verified.",
   "Apple's retired Documentation Archive (/library/archive) is not included (static HTML only).",
