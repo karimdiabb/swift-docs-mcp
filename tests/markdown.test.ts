@@ -90,6 +90,13 @@ describe("renderMarkdown", () => {
     expect(renderMarkdown(p, meta)).toContain("protocol View\n```");
   });
 
+  it("attributes swift.org pages to swift.org, not Apple", () => {
+    const p = parseRenderNode(fx("swiftorg-aboutswift"), { url: "https://docs.swift.org/latest/documentation/the-swift-programming-language/aboutswift" });
+    const md = renderMarkdown(p, meta);
+    expect(md).toMatch(/Retrieved .* from swift\.org \(not cached\)\. Source: Swift\.org documentation\.$/);
+    expect(md).not.toContain("Apple Developer Documentation");
+  });
+
   it("renders parameters", () => {
     const md = renderMarkdown(page("op", "/documentation/swift/int/+(_:_:)"), meta);
     expect(md).toContain("## Parameters\n\n- `lhs`: The first value to add.\n- `rhs`: The second value to add.");

@@ -7,6 +7,8 @@ import type { DocPage } from "./types.ts";
 import { DocCache, type CacheEntry } from "../cache/cache.ts";
 import { parseDocUrl, type DocUrl, type Language } from "../security/url.ts";
 
+const SITE_NAME: Record<string, string> = { "developer.apple.com": "Apple", "docs.swift.org": "docs.swift.org" };
+
 export type GetDocOptions = { language?: Language; maxRelated?: number; includeRelated?: boolean };
 
 export type DocResult = {
@@ -66,7 +68,7 @@ export class DocService {
       r = await this.client.getJson(u.dataUrl, usable ? { etag: usable.entry.etag, lastModified: usable.entry.lastModified } : {});
     } catch (e) {
       if (usable && e instanceof AppleHttpError && FALLBACK_KINDS.has(e.kind)) {
-        const warning = `Apple could not be reached (${e.kind}${e.status ? ` ${e.status}` : ""}); showing the cached copy from ${new Date(usable.entry.fetchedAt).toISOString()}.`;
+        const warning = `${SITE_NAME[u.host] ?? u.host} could not be reached (${e.kind}${e.status ? ` ${e.status}` : ""}); showing the cached copy from ${new Date(usable.entry.fetchedAt).toISOString()}.`;
         return { json: cachedJson, url: usable.entry.url || u.humanUrl, entry: usable.entry, flags: { fromCache: true, revalidated: false, stale: true, warning } };
       }
       throw e;

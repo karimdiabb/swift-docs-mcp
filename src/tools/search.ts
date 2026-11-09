@@ -17,7 +17,7 @@ export function searchTool(ctx: ToolContext, a: z.infer<typeof searchInput>) {
     const r = store.search(a.query, { limit: a.limit ?? 10, ...(a.cursor ? { cursor: a.cursor } : {}), ...(a.framework ? { framework: a.framework } : {}), ...(a.platform ? { platform: a.platform } : {}), ...(kind ? { kind } : {}) });
     const filters = [a.framework && `framework ${a.framework}`, a.platform && `platform ${a.platform}`, a.kind && `kind ${a.kind}`].filter(Boolean).join(", ");
     const built = store.getMeta("lastRefresh") ?? store.getMeta("lastBuild");
-    const head = `Search results for "${a.query}"${filters ? ` (${filters})` : ""}: ${r.hits.length} of ${r.total}.\nSource: local index of Apple's documentation${built ? ` (updated ${new Date(Number(built)).toISOString().slice(0, 10)})` : ""}; not a live Apple search.`;
+    const head = `Search results for "${a.query}"${filters ? ` (${filters})` : ""}: ${r.hits.length} of ${r.total}.\nSource: local index of Apple and swift.org documentation${built ? ` (updated ${new Date(Number(built)).toISOString().slice(0, 10)})` : ""}; not a live Apple search.`;
     const notes: string[] = [];
     if (!r.matchedAllWords) notes.push("No page matched all words; showing pages that match any word.");
     if (a.platform && r.platformUnknown) notes.push(`${r.platformUnknown} matching pages without platform data (not fetched yet) are included after the confirmed ones and marked "availability not yet known". Pages known not to support ${a.platform} are left out.`);

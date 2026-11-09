@@ -1,9 +1,9 @@
 import type { z } from "zod";
 import { fence } from "../apple/docc-parser.ts";
 import { docSegments, symbolName } from "../index/navigator.ts";
-import { urlForPath } from "../security/url.ts";
+import { siteOf, urlForPath } from "../security/url.ts";
 import type { IndexDoc } from "../index/store.ts";
-import { lazyEnrich, DATA_NOTE } from "./documentation.ts";
+import { lazyEnrich, dataNote } from "./documentation.ts";
 import { errorResult, NO_INDEX, text, type ToolContext } from "./context.ts";
 import type { apiInput } from "./schemas.ts";
 
@@ -58,8 +58,8 @@ export async function apiTool(ctx: ToolContext, a: z.infer<typeof apiInput>) {
       out.push(`## Availability\n\n${p.availability.map((x) => (x.unavailable ? `- ${x.platform}: unavailable` : `- ${x.platform} ${x.introduced ?? ""}+${x.beta ? " (beta)" : ""}${x.deprecated ? ` — deprecated ${x.deprecated}` : x.deprecatedNoVersion ? " — deprecated" : ""}`)).join("\n")}`);
     const related = [...p.relationships, ...p.topics, ...p.seeAlso].flatMap((g) => g.items.map((i) => ({ ...i, group: g.title }))).slice(0, 12);
     if (related.length) out.push(`## Related symbols\n\n${related.map((i) => `- ${i.title}${i.url ? ` — ${i.url}` : ""} (${i.group})`).join("\n")}`);
-    out.push(`---\nRetrieved ${new Date(r.fetchedAt).toISOString()} from Apple (${r.fromCache ? "from local cache" : "not cached"}).${platformNote}`);
-    return text(`${r.warning ? `> **Warning:** ${r.warning}\n\n` : ""}${DATA_NOTE}\n\n${out.join("\n\n")}`);
+    out.push(`---\nRetrieved ${new Date(r.fetchedAt).toISOString()} from ${siteOf(p.url).name} (${r.fromCache ? "from local cache" : "not cached"}).${platformNote}`);
+    return text(`${r.warning ? `> **Warning:** ${r.warning}\n\n` : ""}${dataNote(p.url)}\n\n${out.join("\n\n")}`);
   } catch (e) {
     return errorResult(ctx, "get_apple_api_details", e);
   }

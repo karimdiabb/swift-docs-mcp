@@ -1,5 +1,6 @@
 // DocPage -> one Markdown document for the model to read.
 // Order: title, kind line, source, notices, abstract, declaration, parameters, availability, body, links, footer.
+import { siteOf } from "../security/url.ts";
 import { code, fence, linkLine } from "./docc-parser.ts";
 import type { Availability, DocPage, LinkGroup, PageKind } from "./types.ts";
 
@@ -52,7 +53,8 @@ export function renderMarkdown(p: DocPage, o: RenderOptions): string {
   if (p.unsupported.length) out.push(`Note: some content types are not fully rendered: ${p.unsupported.join(", ")}. Their text is included above.`);
 
   const when = new Date(o.fetchedAt).toISOString();
-  out.push(`---\nRetrieved ${when} from Apple (${o.fromCache ? "from local cache" : "not cached"}). Source: Apple Developer Documentation.`);
+  const site = siteOf(p.url);
+  out.push(`---\nRetrieved ${when} from ${site.name} (${o.fromCache ? "from local cache" : "not cached"}). Source: ${site.label}.`);
   return out.filter(Boolean).join("\n\n");
 }
 

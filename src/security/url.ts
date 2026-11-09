@@ -183,3 +183,14 @@ function encodePath(path: string): string {
 function isRobotsDisallowed(site: Site, path: string) {
   return site.robotsDisallowed.some((p) => path.startsWith(p) || path + "/" === p);
 }
+
+/** Who published a page, for attribution in output. */
+export function siteOf(pageUrl: string): { host: string; name: string; label: string; possessive: string } {
+  let host = "developer.apple.com";
+  try {
+    host = new URL(pageUrl).hostname;
+  } catch {}
+  return host === "docs.swift.org"
+    ? { host, name: "swift.org", label: "Swift.org documentation", possessive: "swift.org's documentation" }
+    : { host, name: "Apple", label: "Apple Developer Documentation", possessive: "Apple's developer documentation" };
+}

@@ -120,6 +120,16 @@ describe("DocService.getDoc", () => {
     expect(r.markdown).toContain("2026-11-09T12:00:00.000Z"); // the date of the cached copy
   });
 
+  it("names docs.swift.org, not Apple, when swift.org is unreachable", async () => {
+    const SW = "https://docs.swift.org/latest/documentation/the-swift-programming-language/aboutswift";
+    respond = () => ok(readFileSync(new URL("./fixtures/swiftorg-aboutswift.json", import.meta.url), "utf8"));
+    await service().getDoc(SW);
+    t += 8 * DAY;
+    respond = () => Promise.reject(new TypeError("fetch failed"));
+    const r = await service().getDoc(SW);
+    expect(r.warning).toMatch(/^docs\.swift\.org could not be reached/);
+  });
+
   it("throws when Apple is unreachable and nothing is cached", async () => {
     respond = () => Promise.reject(new TypeError("fetch failed"));
     const e = await rejection(service().getDoc(PAGE));

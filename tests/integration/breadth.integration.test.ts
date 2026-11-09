@@ -46,11 +46,13 @@ const PAGES: [string, string, string][] = [
   ["Sample code", "/documentation/metal/drawing-a-triangle-with-metal-4", "sampleCode"],
   ["Human Interface Guidelines", "/design/human-interface-guidelines/color", "guideline"],
   ["Tutorial", "/tutorials/swiftui/creating-and-combining-views", "tutorial"],
+  ["Swift book (docs.swift.org)", "https://docs.swift.org/latest/documentation/the-swift-programming-language/concurrency", "article"],
+  ["Swift API Guidelines (docs.swift.org)", "https://docs.swift.org/latest/documentation/apiguidelines", "collection"],
 ];
 
 describe.skipIf(!enabled)("breadth across framework families", () => {
   it.each(PAGES)("%s: %s", async (_family, path, kind) => {
-    const url = A + path;
+    const url = path.startsWith("https://") ? path : A + path;
     const raw = await client.getJson(parseDocUrl(url).dataUrl);
     if (raw.status !== 200) throw new Error(`unexpected ${raw.status}`);
     const json: any = raw.data;
