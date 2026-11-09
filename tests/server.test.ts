@@ -145,6 +145,8 @@ describe("search_apple_docs", () => {
     await connect();
     const r = await call("search_apple_docs", { query: "navigationstack", platform: "iOS" });
     expect(r.text).toMatch(/without platform data/);
+    expect(r.text).toContain("Availability: not yet known");
+    expect((await call("search_apple_docs", { query: "navigationstack" })).text).not.toContain("not yet known");
   });
 
   it("paginates with a cursor", async () => {

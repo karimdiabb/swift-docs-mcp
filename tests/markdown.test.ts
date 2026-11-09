@@ -84,6 +84,12 @@ describe("renderMarkdown", () => {
     expect(md).toContain("Language shown: Objective-C");
   });
 
+  it("drops trailing newlines inside a declaration fence (display only)", () => {
+    const p = page("protocol", "/documentation/swiftui/view");
+    p.declarations[0].code += "\n";
+    expect(renderMarkdown(p, meta)).toContain("protocol View\n```");
+  });
+
   it("renders parameters", () => {
     const md = renderMarkdown(page("op", "/documentation/swift/int/+(_:_:)"), meta);
     expect(md).toContain("## Parameters\n\n- `lhs`: The first value to add.\n- `rhs`: The second value to add.");

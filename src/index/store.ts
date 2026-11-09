@@ -301,13 +301,17 @@ export class IndexStore {
     }
     const base = `FROM docs_fts JOIN docs d ON d.id = docs_fts.rowid LEFT JOIN roots r ON r.path = d.root WHERE ${where.join(" AND ")}`;
 
+    // Platform filter: drop pages known not to support the platform; keep pages without platform data yet
+    // (most pages until enriched), ordered after confirmed ones and counted in platformUnknown.
     let platformUnknown = 0;
     let platformWhere = "";
+    let platformOrder = "";
     const platformParams: any[] = [];
     if (o.platform) {
       const p = PLATFORMS[o.platform.toLowerCase().trim()] ?? o.platform;
       platformUnknown = (this.db.prepare(`SELECT count(*) AS n ${base} AND d.platforms IS NULL`).get(...params) as any).n;
-      platformWhere = ` AND EXISTS (SELECT 1 FROM json_each(d.platforms) j WHERE json_extract(j.value, '$.platform') = ? AND coalesce(json_extract(j.value, '$.unavailable'), 0) = 0)`;
+      platformWhere = ` AND (d.platforms IS NULL OR EXISTS (SELECT 1 FROM json_each(d.platforms) j WHERE json_extract(j.value, '$.platform') = ? AND coalesce(json_extract(j.value, '$.unavailable'), 0) = 0))`;
+      platformOrder = "(d.platforms IS NULL), ";
       platformParams.push(p);
     }
 
@@ -322,7 +326,7 @@ export class IndexStore {
                   WHEN d.nav_type IN (${OTHER_TOP_LEVEL.map(() => "?").join(",")}) THEN 3 ELSE 0 END
            + CASE WHEN d.deprecated = 1 THEN 5 ELSE 0 END AS score
          ${base}${platformWhere}
-         ORDER BY score, length(d.path), d.path LIMIT ? OFFSET ?`,
+         ORDER BY ${platformOrder}score, length(d.path), d.path LIMIT ? OFFSET ?`,
       )
       .all(q, q, ...CODE_TYPES, ...OTHER_TOP_LEVEL, ...params, ...platformParams, limit, offset) as any[];
     return { hits: rows.map(hitFromRow), total, platformUnknown };

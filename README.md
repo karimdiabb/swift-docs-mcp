@@ -59,8 +59,8 @@ Tutorial collections are discovered through links (plus a seed, `/tutorials/swif
 - Apple publishes no verified, complete inventory of its documentation, so coverage is "everything Apple's
   own catalog and indexes list", not a proven 100%.
 - Abstracts, platforms and declarations are only stored for pages fetched at least once (on demand, or with
-  `index enrich`). Until then, search shows title, kind and framework, and the `platform` filter skips those
-  pages (the result says how many).
+  `index enrich`). Until then, search shows title, kind and framework. The `platform` filter drops pages known
+  not to support the platform, lists confirmed pages first, and marks the rest "availability not yet known".
 - Tutorials have no catalog endpoint; only linked or seeded tutorial collections are found.
 - **The Swift book (docs.swift.org) is not included yet**: its endpoints still have to be verified.
 - Not included: the retired Documentation Archive (`/library/archive`), localized docs, WWDC videos, forums.

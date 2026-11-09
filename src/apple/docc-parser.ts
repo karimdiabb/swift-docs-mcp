@@ -451,7 +451,7 @@ function section(title: string, content: string, level = 3): string {
 export function fence(lang: string, text: string): string {
   const syntax = lang === "occ" ? "objc" : lang === "data" ? "" : lang;
   const ticks = text.includes("```") ? "~~~~" : "```";
-  return `${ticks}${syntax}\n${text}\n${ticks}`;
+  return `${ticks}${syntax}\n${text.replace(/\n+$/, "")}\n${ticks}`;
 }
 
 export function code(s: string): string {

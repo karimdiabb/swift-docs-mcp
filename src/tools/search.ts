@@ -20,10 +20,10 @@ export function searchTool(ctx: ToolContext, a: z.infer<typeof searchInput>) {
     const head = `Search results for "${a.query}"${filters ? ` (${filters})` : ""}: ${r.hits.length} of ${r.total}.\nSource: local index of Apple's documentation${built ? ` (updated ${new Date(Number(built)).toISOString().slice(0, 10)})` : ""}; not a live Apple search.`;
     const notes: string[] = [];
     if (!r.matchedAllWords) notes.push("No page matched all words; showing pages that match any word.");
-    if (a.platform && r.platformUnknown) notes.push(`${r.platformUnknown} matching pages without platform data (not fetched yet) were left out by the platform filter; search without it to see them.`);
+    if (a.platform && r.platformUnknown) notes.push(`${r.platformUnknown} matching pages without platform data (not fetched yet) are included after the confirmed ones and marked "availability not yet known". Pages known not to support ${a.platform} are left out.`);
     if (!r.hits.length) return text(`${head}\n\nNo results.${notes.length ? "\n\n" + notes.join("\n") : ""}\n\nTry fewer or different words, another framework, or no filters.`);
     const offset = a.cursor ? decodeOffset(a.cursor) : 0;
-    const items = r.hits.map((h, i) => hitText(h, offset + i + 1)).join("\n\n");
+    const items = r.hits.map((h, i) => hitText(h, offset + i + 1, !!a.platform)).join("\n\n");
     const more = r.nextCursor ? `\n\nMore results: call again with cursor: "${r.nextCursor}"` : "";
     return text(`${head}\n\n${items}${more}${notes.length ? "\n\n" + notes.join("\n") : ""}`);
   } catch (e) {
@@ -31,12 +31,13 @@ export function searchTool(ctx: ToolContext, a: z.infer<typeof searchInput>) {
   }
 }
 
-function hitText(h: SearchHit, n: number): string {
+function hitText(h: SearchHit, n: number, platformFilter: boolean): string {
   const flags = [h.deprecated ? "deprecated" : "", h.beta ? "beta" : ""].filter(Boolean);
   const lines = [`${n}. **${h.title}**${flags.length ? ` (${flags.join(", ")})` : ""} — ${KIND_LABEL[h.pageKind] ?? h.pageKind} · ${h.framework}${h.pageKind === "api" ? ` · ${h.navType} \`${h.name}\`` : ""}`, `   ${h.url}`];
   if (h.declaration) lines.push(`   \`${h.declaration.replace(/\s+/g, " ")}\``);
   if (h.abstract) lines.push(`   ${h.abstract}`);
-  if (h.platforms?.length) lines.push(`   Availability: ${h.platforms.map((p) => (p.unavailable ? `${p.platform} unavailable` : `${p.platform} ${p.introduced ?? ""}+${p.deprecated ? ` (deprecated ${p.deprecated})` : ""}`)).join(", ")}`);
+  if (!h.platforms && platformFilter) lines.push("   Availability: not yet known (page not fetched yet)");
+  else if (h.platforms?.length) lines.push(`   Availability: ${h.platforms.map((p) => (p.unavailable ? `${p.platform} unavailable` : `${p.platform} ${p.introduced ?? ""}+${p.deprecated ? ` (deprecated ${p.deprecated})` : ""}`)).join(", ")}`);
   return lines.join("\n");
 }
 

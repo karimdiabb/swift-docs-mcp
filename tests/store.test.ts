@@ -85,12 +85,27 @@ describe("search", () => {
     expect(store.search("swiftui", { kind: "article" }).hits.map((h) => h.path)).toEqual(["/documentation/swiftui/migrating-to-the-swiftui-life-cycle"]);
   });
 
-  it("filters by platform only where platform data exists, and reports the unknown ones", () => {
+  // Behaviour changed after the real build: with ~0.05% of pages enriched, excluding unknowns returned nothing.
+  it("platform filter: confirmed pages first, pages without data kept and counted, known-unavailable dropped", () => {
     store.enrich("/documentation/swiftui/navigationstack", { abstract: "A view that displays a root view.", platforms: [{ platform: "iOS", introduced: "16.0" }, { platform: "tvOS", unavailable: true }], declaration: "struct NavigationStack" }, 2000);
+    store.enrich("/documentation/uikit/uinavigationcontroller", { platforms: [{ platform: "iOS", introduced: "2.0" }] }, 2000);
+    store.enrich("/documentation/swiftui/navigationview", { platforms: [{ platform: "macOS", introduced: "10.15" }] }, 2000);
     const ios = store.search("navigation", { platform: "ios" });
-    expect(ios.hits.map((h) => h.path)).toEqual(["/documentation/swiftui/navigationstack"]);
-    expect(ios.platformUnknown).toBe(2); // navigationview and uinavigationcontroller have no platform data yet
-    expect(store.search("navigation", { platform: "tvOS" }).hits).toHaveLength(0); // unavailable on tvOS
+    expect(ios.hits.map((h) => h.path).slice(0, 2).sort()).toEqual(["/documentation/swiftui/navigationstack", "/documentation/uikit/uinavigationcontroller"]);
+    expect(ios.hits.map((h) => h.path)).not.toContain("/documentation/swiftui/navigationview"); // known: not on iOS
+    expect(ios.platformUnknown).toBe(0);
+    const tv = store.search("navigation", { platform: "tvOS" });
+    expect(tv.hits.map((h) => h.path)).not.toContain("/documentation/swiftui/navigationstack"); // unavailable on tvOS
+    expect(tv.hits.map((h) => h.path)).toEqual([]); // the others are known and lack tvOS
+  });
+
+  it("platform filter keeps pages with unknown availability after the confirmed ones", () => {
+    store.enrich("/documentation/uikit/uinavigationcontroller", { platforms: [{ platform: "iOS", introduced: "2.0" }] }, 2000);
+    const r = store.search("navigation", { platform: "iOS" });
+    expect(r.hits[0].path).toBe("/documentation/uikit/uinavigationcontroller"); // confirmed first, despite weaker rank
+    expect(r.hits.slice(1).every((h) => h.platforms === undefined)).toBe(true);
+    expect(r.platformUnknown).toBe(2);
+    expect(r.total).toBe(3);
   });
 
   it("returns enriched abstract, declaration and platforms", () => {
