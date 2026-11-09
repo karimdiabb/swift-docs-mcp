@@ -99,7 +99,7 @@ a public API and could change; the server reports such failures as errors, never
 ```bash
 cd /path/to/swift-docs-mcp
 npm install
-npm run build          # compiles to dist/
+npm run build          # compiles to dist/ (it only builds; Claude Desktop starts the server itself)
 npm test               # optional: unit tests, no network
 ```
 
@@ -107,7 +107,7 @@ npm test               # optional: unit tests, no network
 
 1. Find the absolute paths you need:
    ```bash
-   which node                       # e.g. /opt/homebrew/bin/node  (use this instead of "node" if Claude can't find node)
+   which node                       # YOUR node path; it differs per Mac (Homebrew, nvm, nodejs.org installer)
    echo "$PWD/dist/index.js"        # run inside the project folder
    ```
 2. Open the config file. In Claude Desktop: **Settings → Developer → Edit Config**. On macOS it is currently
@@ -121,12 +121,14 @@ npm test               # optional: unit tests, no network
    {
      "mcpServers": {
        "swift-docs": {
-         "command": "/opt/homebrew/bin/node",
+         "command": "/ABSOLUTE/PATH/FROM/which/node",
          "args": ["/ABSOLUTE/PATH/TO/swift-docs-mcp/dist/index.js"]
        }
      }
    }
    ```
+   Check it starts: `"$(which node)" dist/index.js` should print `swift-docs-mcp 0.1.0 ready` and then wait
+   (it expects Claude to talk to it); stop it with Ctrl-C.
 4. Quit Claude Desktop completely (⌘Q) and reopen it. The four tools appear under the tools (🔨) menu.
 5. Build the index (section 9). Retrieval by URL works before that; search needs the index.
 
@@ -210,7 +212,7 @@ run it in chunks with `--max`, and it skips pages already done.
 | Symptom | Fix |
 |---|---|
 | Tools don't appear in Claude Desktop | Check the JSON is valid, the paths are absolute, then fully quit (⌘Q) and reopen. Logs: `~/Library/Logs/Claude/mcp*.log`. |
-| "spawn node ENOENT" in the logs | Claude can't find `node`: use the absolute path from `which node` as `command`. |
+| "spawn node ENOENT" or "No executable file at …" | The `command` path is wrong for your Mac: put the output of `which node` there. |
 | Search says the index is not available | Run `node dist/index.js index build`. The server picks up the new index without a restart. |
 | "Apple could not be reached" | Network or Apple outage. Cached pages are still served, with a warning and their date. |
 | `index build` says another operation is running | Another build/refresh is running. If none is, the lock is from a crashed run and the next run takes it over. |
