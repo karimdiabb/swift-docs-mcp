@@ -114,3 +114,17 @@ schema changes as errors it reports, never as silent empty results.
   is a drop-in fallback but needs a native build.
 - **HTML parser: none.** DocC HTML pages are JS shells and the legacy archive is excluded, so the HTML fallback
   is dropped. The spec allows this ("only if necessary").
+
+## First full build (2026-11-09, `index build` against the live site)
+- **384,297 pages** from 408 roots: 397 navigator indexes + 11 walked roots (HIG 173 pages, 5 nested
+  collections, 5 tutorial collections discovered through links: swiftui, develop-in-swift, sample-apps,
+  swiftui-concepts, mac-catalyst). 0 errors. Index file 218 MB; navigator downloads are not kept.
+- The 5 nested collections without an index link only to sibling pages, and all 101 of those links were
+  already indexed through the parent's navigator. No coverage gap there.
+- By kind: api 372,849, collection 6,972, article 3,561, sampleCode 656, guideline 173, tutorial 86.
+- Search latency on the full index: 0–43 ms (FTS5), symbol lookup about 45 ms.
+- Ranking issues found on real data and fixed (with tests): legacy markup/JSON roots (TVML, Apple News
+  Format, WebKit JS) outranked SwiftUI/Swift types for common names, so code types now get a stronger tier.
+  Qualified names (`SwiftUI.NavigationStack`) now mean the direct parent chain.
+- Right after a build, under 0.1% of pages have platform data, so the platform filter keeps unknown pages
+  (marked) after confirmed ones instead of returning nothing.
