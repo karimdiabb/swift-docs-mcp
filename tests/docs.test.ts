@@ -178,6 +178,17 @@ describe("DocService.getDoc", () => {
     expect(readdirSync(join(dir, "pages"))).toHaveLength(0); // a non-page response is never cached
   });
 
+  it("loadJson returns the raw page JSON through the same cache", async () => {
+    const s = service();
+    const a = await s.loadJson(PAGE);
+    expect((a.json as any).metadata.title).toBe("SKProductDiscount.Type.introductory");
+    expect(a.fromCache).toBe(false);
+    expect(a.url).toBe(PAGE);
+    const b = await s.loadJson(PAGE);
+    expect(b.fromCache).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
   it("passes maxRelated and includeRelated through to the renderer", async () => {
     const r = await service().getDoc(PAGE, { includeRelated: false });
     expect(r.markdown).not.toContain("## See Also");

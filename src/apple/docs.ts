@@ -5,7 +5,7 @@ import { parseRenderNode } from "./docc-parser.ts";
 import { renderMarkdown } from "./markdown.ts";
 import type { DocPage } from "./types.ts";
 import { DocCache, type CacheEntry } from "../cache/cache.ts";
-import { parseDocUrl, type Language } from "../security/url.ts";
+import { parseDocUrl, type DocUrl, type Language } from "../security/url.ts";
 
 export type GetDocOptions = { language?: Language; maxRelated?: number; includeRelated?: boolean };
 
@@ -43,11 +43,23 @@ export class DocService {
   async getDoc(url: string, opts: GetDocOptions = {}): Promise<DocResult> {
     const u = parseDocUrl(url);
     const language = opts.language ?? u.language;
+    const l = await this.load(u);
+    const page = parseRenderNode(l.json, { url: l.url, ...(language ? { language } : {}) });
+    return this.render(page, l.entry, l.flags, opts);
+  }
+
+  /** Raw DocC JSON for a documentation URL, through the same cache/revalidation path as getDoc. */
+  async loadJson(url: string): Promise<{ json: unknown; url: string; fetchedAt: number; fromCache: boolean; stale?: boolean; warning?: string }> {
+    const l = await this.load(parseDocUrl(url));
+    return { json: l.json, url: l.url, fetchedAt: l.entry.fetchedAt, ...l.flags };
+  }
+
+  private async load(u: DocUrl): Promise<{ json: unknown; url: string; entry: CacheEntry; flags: Flags }> {
     const hit = this.cache.get(u.key);
-    const cachedJson = hit ? tryParse(hit.entry.body) : undefined;
+    const cachedJson = hit ? asPage(tryParse(hit.entry.body)) : undefined;
     const usable = hit && cachedJson !== undefined ? hit : undefined;
 
-    if (usable?.fresh) return this.finish(cachedJson, usable.entry, u.humanUrl, { fromCache: true, revalidated: false }, language, opts);
+    if (usable && usable.fresh) return { json: cachedJson, url: usable.entry.url || u.humanUrl, entry: usable.entry, flags: { fromCache: true, revalidated: false } };
 
     let r;
     try {
@@ -55,7 +67,7 @@ export class DocService {
     } catch (e) {
       if (usable && e instanceof AppleHttpError && FALLBACK_KINDS.has(e.kind)) {
         const warning = `Apple could not be reached (${e.kind}${e.status ? ` ${e.status}` : ""}); showing the cached copy from ${new Date(usable.entry.fetchedAt).toISOString()}.`;
-        return this.finish(cachedJson, usable.entry, u.humanUrl, { fromCache: true, revalidated: false, stale: true, warning }, language, opts);
+        return { json: cachedJson, url: usable.entry.url || u.humanUrl, entry: usable.entry, flags: { fromCache: true, revalidated: false, stale: true, warning } };
       }
       throw e;
     }
@@ -63,21 +75,15 @@ export class DocService {
     if (r.status === 304) {
       if (!usable) throw new AppleHttpError("bad_response", u.dataUrl, "304 without a cached copy");
       this.cache.touch(u.key, { etag: r.etag, lastModified: r.lastModified });
-      const entry = { ...usable.entry, fetchedAt: this.now() };
-      return this.finish(cachedJson, entry, u.humanUrl, { fromCache: true, revalidated: true }, language, opts);
+      return { json: cachedJson, url: usable.entry.url || u.humanUrl, entry: { ...usable.entry, fetchedAt: this.now() }, flags: { fromCache: true, revalidated: true } };
     }
 
+    // Validate before caching, so a non-page response is never stored.
+    if (asPage(r.data) === undefined) throw new AppleHttpError("bad_response", r.url, "not a DocC RenderNode");
     const finalHuman = r.url === u.dataUrl ? u.humanUrl : humanFromData(r.url);
-    // Parse before caching, so a non-page response is never stored.
-    const page = parseRenderNode(r.data, { url: finalHuman, ...(language ? { language } : {}) });
     const entry = this.cache.set({ key: u.key, url: finalHuman, body: r.body, ...(r.etag ? { etag: r.etag } : {}), ...(r.lastModified ? { lastModified: r.lastModified } : {}) });
-    const extra = finalHuman !== u.humanUrl ? { redirectedFrom: u.humanUrl } : {};
-    return this.render(page, entry, { fromCache: false, revalidated: false, ...extra }, opts);
-  }
-
-  private finish(json: unknown, entry: CacheEntry, humanUrl: string, flags: Flags, language: Language | undefined, opts: GetDocOptions): DocResult {
-    const page = parseRenderNode(json, { url: entry.url || humanUrl, ...(language ? { language } : {}) });
-    return this.render(page, entry, flags, opts);
+    const flags: Flags = { fromCache: false, revalidated: false, ...(finalHuman !== u.humanUrl ? { redirectedFrom: u.humanUrl } : {}) };
+    return { json: r.data, url: finalHuman, entry, flags };
   }
 
   private render(page: DocPage, entry: CacheEntry, flags: Flags, opts: GetDocOptions): DocResult {
@@ -96,11 +102,15 @@ type Flags = { fromCache: boolean; revalidated: boolean; stale?: boolean; warnin
 
 function tryParse(body: string): unknown {
   try {
-    const v = JSON.parse(body);
-    return v && typeof v === "object" && v.metadata && v.identifier ? v : undefined;
+    return JSON.parse(body);
   } catch {
     return undefined;
   }
+}
+
+function asPage(v: unknown): unknown {
+  const j = v as any;
+  return j && typeof j === "object" && !Array.isArray(j) && j.metadata && typeof j.metadata === "object" && typeof j.identifier?.url === "string" ? v : undefined;
 }
 
 /** https://developer.apple.com/tutorials/data/documentation/x.json -> https://developer.apple.com/documentation/x */
