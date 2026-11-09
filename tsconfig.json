@@ -10,5 +10,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "research", "tests", "*.config.ts"]
+  "include": ["src", "research", "scripts", "tests", "*.config.ts"]
 }

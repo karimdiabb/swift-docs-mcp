@@ -35,7 +35,8 @@ schema changes as errors it reports, never as silent empty results.
   platforms or declarations**, which live only in the page JSON.
 
 ## Page JSON (`pages.ts`, 22 page kinds)
-- URL mapping: `/x/y` → `/tutorials/data/x/y.json`. It is **case-insensitive** (mixed case returns the same
+- URL mapping: `/x/y` → `/tutorials/data/x/y.json`. DocC escapes unsafe operator characters as `_`
+  (`<` → `_(_:_:)-3wpum`) and prefixes dot-leading names with `'` (`'...(_:_:)`). Raw `<`, `%` and `..` never occur. It is **case-insensitive** (mixed case returns the same
   200), so the lowercase path is the canonical key. It works for overload hashes (`update()-9fxv4`), operators
   (`+(_:_:)`), ObjC selectors (`decimalnumberwithdecimal:`) and disambiguators (`type-swift.enum`).
 - `schemaVersion` was 0.3.0 on every page sampled.
@@ -78,6 +79,7 @@ schema changes as errors it reports, never as silent empty results.
 | Legacy Documentation Archive (`/library/archive`) | Static HTML only. Retired by Apple | Excluded |
 | Abstracts / platforms / declarations for all 384k pages | Not in the indexes | Lazy (filled in when a page is fetched) + optional enrichment crawl |
 | Localized docs | Not served via JSON | Excluded (English only) |
+| Sample-code download URLs | Given only as a relative id. The download host (`docs-assets.developer.apple.com`) is blocked by this sandbox's firewall, so the pattern is unverified | We link to the sample's page instead of building a URL |
 
 ## Proposed architecture
 1. **Discovery (CLI `index build`)**: technologies.json → 397 navigator indexes → tree-walk for the 6 roots
