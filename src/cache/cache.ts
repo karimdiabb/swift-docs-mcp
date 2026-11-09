@@ -104,7 +104,8 @@ export class DocCache {
   touch(key: string, validators: { etag?: string; lastModified?: string } = {}) {
     const hit = this.get(key);
     if (!hit) return;
-    this.set({ ...hit.entry, ...validators, fetchedAt: this.now() });
+    const updates = Object.fromEntries(Object.entries(validators).filter(([, v]) => typeof v === "string")); // undefined must not erase stored validators
+    this.set({ ...hit.entry, ...updates, fetchedAt: this.now() });
   }
 
   clear(): number {
