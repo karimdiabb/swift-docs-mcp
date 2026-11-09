@@ -77,7 +77,9 @@ describe.skipIf(!enabled)("real index from Apple's catalog (two roots)", () => {
     expect(store.search("NavigationStack").hits[0].url).toBe(`${A}/documentation/swiftui/navigationstack`);
     expect(store.search("JSONDecoder").hits[0].url).toBe(`${A}/documentation/foundation/jsondecoder`);
     expect(store.search("navigation stack").hits.slice(0, 3).map((h) => h.url)).toContain(`${A}/documentation/swiftui/navigationstack`);
-    expect(store.findSymbol("NavigationStack").map((c) => c.path)).toEqual(["/documentation/swiftui/navigationstack"]);
+    // The bare name is genuinely ambiguous on Apple's site (ToolbarRole.navigationStack also exists); qualified is exact.
+    expect(store.findSymbol("NavigationStack").map((c) => c.path)[0]).toBe("/documentation/swiftui/navigationstack");
+    expect(store.findSymbol("SwiftUI.NavigationStack").map((c) => c.path)).toEqual(["/documentation/swiftui/navigationstack"]);
     expect(store.findSymbol("View.onAppear").length).toBeGreaterThan(0);
   }, 120_000);
 
