@@ -153,6 +153,20 @@ describe("sync bookkeeping", () => {
     expect(store.get("/documentation/swiftui/view")?.deprecated).toBe(true);
   });
 
+  // Real case: the Distributed navigator index lists ~18k Swift standard-library pages without marking them external.
+  it("gives a page to the root whose path contains it, whichever index lists it first", () => {
+    store.upsertRoot({ path: "/documentation/distributed", slug: "distributed", title: "Distributed", method: "navigator", status: "ok" });
+    store.upsertRoot({ path: "/documentation/swift", slug: "swift", title: "Swift", method: "navigator", status: "ok" });
+    const str = nav({ path: "/documentation/swift/string", title: "String" });
+    store.upsertEntries("/documentation/distributed", [str], 2000);
+    store.upsertEntries("/documentation/swift", [str], 2001);
+    expect(store.get("/documentation/swift/string")?.root).toBe("/documentation/swift");
+    store.upsertEntries("/documentation/distributed", [str], 2002); // listed again later by the foreign root
+    expect(store.get("/documentation/swift/string")?.root).toBe("/documentation/swift");
+    expect(store.search("String").hits[0]).toMatchObject({ path: "/documentation/swift/string", framework: "Swift" });
+    expect(store.search("String", { framework: "distributed" }).hits).toHaveLength(0);
+  });
+
   it("keeps enrichment when the navigator upserts the page again", () => {
     store.enrich("/documentation/swiftui/view", { abstract: "A type that represents part of your app’s user interface." }, 2000);
     store.upsertEntries("/documentation/swiftui", [nav({ path: "/documentation/swiftui/view", title: "View", navType: "protocol" })], 3000);

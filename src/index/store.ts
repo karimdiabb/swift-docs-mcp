@@ -172,17 +172,28 @@ export class IndexStore {
 
   /** Insert or update pages for a root. Existing enrichment is kept; a removed page that reappears is restored. */
   upsertEntries(root: string, entries: (NavEntry & Enrichment)[], seenAt: number, enrichedAt?: number) {
-    const rootRow = this.getRoot(root);
-    const framework = rootRow ? `${rootRow.title} ${rootRow.slug}` : root;
+    // Some navigator indexes list pages of other roots without marking them external (Distributed lists the
+    // Swift standard library). Ownership goes to the root whose path contains the page, in either order.
+    const frameworkText = new Map<string, string>();
+    const frameworkOf = (r: string) => {
+      let f = frameworkText.get(r);
+      if (f === undefined) {
+        const row = this.getRoot(r);
+        f = row ? `${row.title} ${row.slug}` : r;
+        frameworkText.set(r, f);
+      }
+      return f;
+    };
     const upsert = this.db.prepare(
       `INSERT INTO docs(path, root, title, name, nav_type, page_kind, languages, deprecated, beta, abstract, platforms, declaration, enriched_at, seen_at, removed_at)
        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
        ON CONFLICT(path) DO UPDATE SET
+         root = CASE WHEN excluded.path = excluded.root OR substr(excluded.path, 1, length(excluded.root) + 1) = excluded.root || '/' THEN excluded.root ELSE docs.root END,
          title = excluded.title, nav_type = excluded.nav_type, page_kind = excluded.page_kind, languages = excluded.languages,
          deprecated = excluded.deprecated, beta = excluded.beta, seen_at = excluded.seen_at, removed_at = NULL,
          abstract = coalesce(excluded.abstract, docs.abstract), platforms = coalesce(excluded.platforms, docs.platforms),
          declaration = coalesce(excluded.declaration, docs.declaration), enriched_at = coalesce(excluded.enriched_at, docs.enriched_at)
-       RETURNING id, abstract`,
+       RETURNING id, abstract, root`,
     );
     const delFts = this.db.prepare("DELETE FROM docs_fts WHERE rowid = ?");
     const insFts = this.db.prepare("INSERT INTO docs_fts(rowid, title, words, framework, abstract) VALUES(?, ?, ?, ?, ?)");
@@ -192,9 +203,9 @@ export class IndexStore {
         const row = upsert.get(
           e.path, root, e.title, name, e.navType, e.pageKind, e.languages.join(","), e.deprecated ? 1 : 0, e.beta ? 1 : 0,
           e.abstract ?? null, e.platforms ? JSON.stringify(e.platforms) : null, e.declaration ?? null, e.abstract || e.platforms || e.declaration ? (enrichedAt ?? seenAt) : null, seenAt,
-        ) as { id: number; abstract: string | null };
+        ) as { id: number; abstract: string | null; root: string };
         delFts.run(row.id);
-        insFts.run(row.id, e.title, wordsFor(e.title, name), framework, row.abstract ?? "");
+        insFts.run(row.id, e.title, wordsFor(e.title, name), frameworkOf(row.root), row.abstract ?? "");
       }
     });
   }
