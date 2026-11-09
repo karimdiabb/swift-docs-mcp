@@ -31,6 +31,11 @@ schema changes as errors it reports, never as silent empty results.
 - **6 technologies have no index:** HIG plus 5 nested collections (`accelerate/simd-library`,
   `safariservices/safari-app-extensions`, `uikit/mac-catalyst`, `xcode/xcode-cloud`, `xcode/swift-packages`).
   Their page JSON exists (200), but the parent index doesn't list them (checked for `xcode-cloud`).
+- Some indexes list **other roots' pages without `external: true`**: in the first full build, 25,612 of 155,692
+  pages so far sat outside their root's path (Distributed listed 18,456 `/documentation/swift/...` pages,
+  Accelerate 5,557). The index assigns each page to the root whose path contains it.
+- Navigator member titles are full signatures (`func placeholder(in: Self.Context) -> Self.Entry`), so symbol
+  matching uses the last path segment without its overload hash.
 - Navigator nodes only have `title, type, path, deprecated, beta, external`. There are **no abstracts,
   platforms or declarations**, which live only in the page JSON.
 
