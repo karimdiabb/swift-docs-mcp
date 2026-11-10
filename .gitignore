@@ -3,3 +3,7 @@ dist/
 .DS_Store
 *.log
 research/out/
+
+# Local working notes (never published)
+CLAUDE.md
+private/
