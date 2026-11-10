@@ -285,8 +285,8 @@ anything in this repository. If you are a rights holder and want them removed, p
 
 ## License
 
-No license is granted: all rights reserved. You can read the code, but not reuse or redistribute it without
-permission.
+[MIT](LICENSE): use, copy, modify and share the code freely. This covers the project's own code only, not the
+Apple and swift.org content in `tests/fixtures/` (see above).
 
 ## Development
 
