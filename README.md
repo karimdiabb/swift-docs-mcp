@@ -91,7 +91,6 @@ Claude Desktop ──stdio──▶ dist/index.js (MCP server, 4 read-only tools
 | `src/tools/`, `src/server.ts` | MCP tools and stdio server |
 | `src/cli.ts` | `index build/refresh/enrich/status`, `cache clear`, `doc` |
 
-Research behind these choices: [docs/findings.md](docs/findings.md).
 
 ## 3. Documentation coverage and known gaps
 
@@ -297,5 +296,3 @@ npm run test:integration      # opt-in: real Apple pages across ~20 framework fa
                               # and the built server over stdio (run `npm run build` first)
 npm run doc -- <url>          # render one page from source (no build needed)
 ```
-
-`research/` has the Phase 1 probe scripts that produced `docs/findings.md`.

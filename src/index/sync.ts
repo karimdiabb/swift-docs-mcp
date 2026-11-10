@@ -1,6 +1,6 @@
 // Index build / refresh / enrich.
 //
-// Discovery (see docs/findings.md):
+// Discovery (see README section 4):
 // 1. technologies.json lists ~400 roots (frameworks, collections, HIG).
 // 2. Each root's navigator index (/tutorials/data/index/<slug>) lists its pages. Conditional GET: 304 = unchanged.
 // 3. Roots without an index (404: HIG, a few nested collections) and tutorial roots are walked via page links.

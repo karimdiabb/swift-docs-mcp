@@ -1,5 +1,5 @@
 // DocC RenderNode JSON -> DocPage.
-// Shapes were taken from real Apple pages (see docs/findings.md and tests/fixtures).
+// Shapes were taken from real Apple pages (see README section 4 and tests/fixtures).
 // Rules: exact declarations (tokens joined, never reformatted); unknown types keep their text and are
 // recorded in `unsupported`; nothing is invented when a field is missing.
 import { linkBase } from "../security/url.ts";
